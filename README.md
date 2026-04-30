@@ -126,3 +126,20 @@ Devices decoded by rtl_433 include: weather stations, door/window sensors, motio
 ## License
 
 MIT
+
+---
+
+## Built on the shoulders of giants
+
+RTL433-UI is a thin UI layer. All the hard work is done by these excellent open-source projects:
+
+| Project | Role |
+|---------|------|
+| [rtl_433](https://github.com/merbanan/rtl_433) by Benjamin Larsson et al. | RF decoder — identifies hundreds of 433/315/868/915 MHz devices and outputs JSON |
+| [librtlsdr / rtl-sdr](https://github.com/osmocom/rtl-sdr) by Osmocom | Userspace driver for RTL2832U-based SDR dongles |
+| [MQTT.js](https://github.com/mqttjs/MQTT.js) | Node.js MQTT client used to connect to the broker and publish field values |
+| [Eclipse Mosquitto](https://mosquitto.org) | Lightweight MQTT broker (used locally on macOS; HA users can use the [Mosquitto add-on](https://github.com/home-assistant/addons/tree/master/mosquitto)) |
+| [Express](https://expressjs.com) | HTTP server and REST API |
+| [ws](https://github.com/websockets/ws) | WebSocket server for pushing live device data to the browser |
+| [Home Assistant](https://www.home-assistant.io) | Target platform for the add-on; MQTT auto-discovery format defined by HA |
+| [Home Assistant Add-on SDK](https://developers.home-assistant.io/docs/add-ons) | Base Docker images (`ghcr.io/home-assistant/*-base-debian`) and `bashio` shell helpers |
