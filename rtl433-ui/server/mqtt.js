@@ -75,7 +75,12 @@ function getStatus() {
   return connected ? 'connected' : 'disconnected';
 }
 
-connect();
+// Only connect if a broker URL is configured.
+if (config.mqttUrl) {
+  connect();
+} else {
+  console.log('[mqtt] No broker URL configured — skipping connect. Use Settings ⚙️ to configure MQTT.');
+}
 
 module.exports = { publish, getStatus, reconnect, on: emitter.on.bind(emitter) };
 
