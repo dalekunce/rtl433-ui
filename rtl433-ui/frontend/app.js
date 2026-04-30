@@ -157,6 +157,15 @@ function handleMessage(msg) {
         el.className   = `badge ${msg.rtl433}`;
       }
       break;
+
+    case 'logs_init':
+      logClear();
+      for (const line of msg.lines) logAppend(line);
+      break;
+
+    case 'log_line':
+      logAppend(msg.line);
+      break;
   }
 }
 
@@ -621,6 +630,32 @@ function addStreamEntry(data) {
   while (list.children.length > MAX_STREAM) list.removeChild(list.lastChild);
 }
 
+// ── Server log panel ──────────────────────────────────────────────────────────
+const MAX_LOG_LINES = 150;
+
+function logAppend(line) {
+  const list = document.getElementById('log-list');
+  if (!list) return;
+  const entry = document.createElement('div');
+  entry.className = `log-entry log-${line.level}`;
+  const time = new Date(line.ts).toLocaleTimeString();
+  entry.innerHTML = `<span class="log-time">${escHtml(time)}</span><span class="log-text">${escHtml(line.text)}</span>`;
+  list.appendChild(entry);
+  while (list.children.length > MAX_LOG_LINES) list.removeChild(list.firstChild);
+  // Auto-scroll to bottom
+  list.scrollTop = list.scrollHeight;
+  // Update count badge
+  const count = document.getElementById('log-count');
+  if (count) count.textContent = list.children.length;
+}
+
+function logClear() {
+  const list = document.getElementById('log-list');
+  if (list) list.innerHTML = '';
+  const count = document.getElementById('log-count');
+  if (count) count.textContent = '0';
+}
+
 // ── HA MQTT templates ─────────────────────────────────────────────────────────
 function haSlug(s) {
   return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -927,6 +962,17 @@ document.getElementById('sort-by-signal').addEventListener('change', e => {
 
 document.getElementById('clear-stream').addEventListener('click', () => {
   document.getElementById('stream-list').innerHTML = '';
+});
+
+// Log panel: clear button + toggle collapse
+document.getElementById('clear-logs').addEventListener('click', e => {
+  e.stopPropagation(); // don't trigger the toggle
+  logClear();
+});
+
+document.getElementById('log-panel-toggle').addEventListener('click', () => {
+  const panel = document.getElementById('log-panel');
+  panel.classList.toggle('log-panel-collapsed');
 });
 
 document.getElementById('clear-ignored').addEventListener('click', () => {

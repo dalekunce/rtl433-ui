@@ -24,6 +24,10 @@ ports:
 ports_description:
   3000/tcp: "Web UI (also available via HA sidebar via ingress)"
 
+# ── Hardware access ───────────────────────────────────────────────────────────
+# Pass through all connected USB devices so the container can see RTL-SDR dongles.
+usb: true
+
 # ── User-configurable options ─────────────────────────────────────────────────
 options:
   mqtt_url: "mqtt://core-mosquitto:1883"

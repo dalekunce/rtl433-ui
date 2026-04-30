@@ -1,4 +1,7 @@
 'use strict';
+// logger must be first — it patches console.* before any other module loads
+const logger           = require('./logger');
+
 const express          = require('express');
 const http             = require('http');
 const path             = require('path');
@@ -32,6 +35,8 @@ wss.on('connection', ws => {
     mappings: store.getMappings(),
     status:   { mqtt: mqttClient.getStatus(), rtl433: store.getRtl433Status() },
   }));
+  // Send buffered log lines so the panel is populated immediately on connect
+  ws.send(JSON.stringify({ type: 'logs_init', lines: logger.getBuffer() }));
 });
 
 // ── Device data from MQTT (published by rtl_433 add-on) ───────────────────
@@ -55,6 +60,11 @@ mqttClient.on('data', data => {
 // ── MQTT connection status → broadcast ────────────────────────────────────
 mqttClient.on('status', status => {
   broadcast({ type: 'status_update', mqtt: status });
+});
+
+// ── Server log lines → broadcast ───────────────────────────────────────────
+logger.on('line', line => {
+  broadcast({ type: 'log_line', line });
 });
 
 // ── rtl_433 data-flow status → broadcast every 5 s ────────────────────────
