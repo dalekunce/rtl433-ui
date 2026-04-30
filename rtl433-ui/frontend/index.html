@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>rtl433-ui</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header>
+    <h1>rtl433-ui</h1>
+    <div class="status-bar">
+      <span id="status-rtl433" class="badge stopped">rtl_433: stopped</span>
+      <span id="status-mqtt"   class="badge disconnected">MQTT: disconnected</span>
+      <span id="status-ws"     class="badge disconnected">WS: connecting…</span>
+    </div>
+    <button id="btn-config" class="btn-config" title="Settings">⚙️</button>
+  </header>
+
+  <!-- ── Main layout ─────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Left: device list -->
+    <section id="devices-panel">
+      <div class="devices-top">
+      <div class="panel-header">
+        <h2>Devices <span id="device-count" class="count">0</span></h2>
+        <label class="label-inline" title="Sort by total signal count">
+          <input type="checkbox" id="sort-by-signal"> By signal
+        </label>
+        <div id="age-filter" class="age-filter-btns" title="Show only devices seen within…">
+          <button class="btn-age active" data-ms="0">All</button>
+          <button class="btn-age" data-ms="3600000">1h</button>
+          <button class="btn-age" data-ms="600000">10m</button>
+          <button class="btn-age" data-ms="60000">1m</button>
+        </div>
+        <button id="clear-ignored" class="btn-text" title="Restore hidden devices" style="display:none">Show ignored</button>
+      </div>
+
+      <!-- Frequency scanner toolbar -->
+      <div id="freq-toolbar">
+
+        <!-- Radar sweep graphic -->
+        <div id="radar-wrap" class="radar-stopped" title="rtl_433 scan status">
+          <svg id="radar-svg" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- Background rings -->
+            <circle cx="30" cy="30" r="26" class="radar-ring"/>
+            <circle cx="30" cy="30" r="18" class="radar-ring"/>
+            <circle cx="30" cy="30" r="10" class="radar-ring"/>
+            <!-- Cross-hairs -->
+            <line x1="30" y1="4"  x2="30" y2="56" class="radar-cross"/>
+            <line x1="4"  y1="30" x2="56" y2="30" class="radar-cross"/>
+            <!-- Sweep group drawn at origin (0,0); JS rAF sets transform="translate(30,30) rotate(N)" -->
+            <g id="radar-sweep-group" transform="translate(30,30) rotate(0)">
+              <path id="radar-sweep" d="M0,0 L26,0 A26,26 0 0,0 0,-26 Z"/>
+              <line id="radar-arm" x1="0" y1="0" x2="26" y2="0" class="radar-arm"/>
+            </g>
+            <!-- Centre dot -->
+            <circle cx="30" cy="30" r="2" class="radar-dot"/>
+          </svg>
+        </div>
+
+        <span class="freq-label">Scan frequency:</span>
+        <div class="freq-buttons">
+          <button class="btn-freq active" data-freq="433.92M" title="433.92 MHz — EU/global default (weather stations, fan remotes, door sensors)">433.92 MHz</button>
+          <button class="btn-freq" data-freq="315M"    title="315 MHz — older US devices (garage doors, car fobs)">315 MHz</button>
+          <button class="btn-freq" data-freq="868M"    title="868 MHz — European smart home (Z-Wave EU, Somfy)">868 MHz</button>
+          <button class="btn-freq" data-freq="915M"    title="915 MHz — US ISM band (some weather stations, LoRa)">915 MHz</button>
+        </div>
+        <label class="rssi-filter-wrap" title="Hide devices with RSSI below this threshold">
+          RSSI ≥ <span id="rssi-filter-val">All</span>
+          <input type="range" id="rssi-filter" min="-120" max="-40" step="5" value="-120">
+        </label>
+        <button id="btn-scan" class="btn-scan" title="Scan all four bands — 9 s per band (~36 s total)">🔍 Scan bands</button>
+      </div>
+
+      <!-- Scan results (shown after a scan completes) -->
+      <div id="scan-results" style="display:none"></div>
+      </div><!-- /.devices-top -->
+
+      <div id="devices-list">
+        <p class="empty">Waiting for rtl_433 data…</p>
+      </div>
+    </section>
+
+    <!-- Right: mappings + stream -->
+    <aside>
+
+      <section id="mappings-panel">
+        <div class="panel-header">
+          <h2>Mapped Topics <span id="mapping-count" class="count">0</span></h2>
+          <button id="btn-ha-discovery" class="btn-ha-disc" title="Publish HA auto-discovery config for all mapped fields" style="display:none">&#8962; HA Discovery</button>
+        </div>
+        <div id="mappings-list">
+          <p class="empty">No mappings yet. Click <strong>Map →</strong> on a field.</p>
+        </div>
+      </section>
+
+      <section id="stream-panel">
+        <div class="panel-header">
+          <h2>Raw Stream</h2>
+          <button id="clear-stream">Clear</button>
+        </div>
+        <div id="stream-list"></div>
+      </section>
+
+    </aside>
+  </main>
+
+  <!-- ── Map-to-topic modal ──────────────────────────────────────────────── -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <h3>Map field to MQTT topic</h3>
+      <p id="modal-label" class="modal-sublabel"></p>
+      <!-- HA template shortcuts -->
+      <div class="modal-templates">
+        <span class="modal-templates-label">Templates:</span>
+        <button class="btn-tpl" data-tpl="flat"    title="Simple flat topic">rtl433/{model}/{id}/{field}</button>
+        <button class="btn-tpl" data-tpl="ha-state" title="HA-style state topic">homeassistant/sensor/rtl433_{model}_{id}/{field}/state</button>
+        <button class="btn-tpl" data-tpl="ha-disc"  title="Publish HA auto-discovery config then save">HA auto-discovery ✦</button>
+      </div>
+      <input type="text" id="modal-topic" placeholder="e.g. home/outdoor/temperature" autocomplete="off" spellcheck="false">
+      <div class="modal-actions">
+        <button id="modal-cancel">Cancel</button>
+        <button id="modal-save" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Config modal ──────────────────────────────────────────────────── -->
+  <div id="config-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="config-modal-title">
+    <div class="modal-box config-modal-box">
+      <h3 id="config-modal-title">⚙️ Settings</h3>
+
+      <fieldset class="config-section">
+        <legend>MQTT Broker</legend>
+
+        <label class="config-label">
+          Broker URL
+          <span class="config-hint">mqtt:// or mqtts:// for TLS</span>
+          <input type="text" id="cfg-mqtt-url" class="config-input"
+            placeholder="mqtt://localhost:1883" autocomplete="off" spellcheck="false">
+        </label>
+
+        <label class="config-label">
+          Username <span class="config-optional">(optional)</span>
+          <input type="text" id="cfg-mqtt-user" class="config-input"
+            placeholder="leave blank if not required" autocomplete="off" spellcheck="false">
+        </label>
+
+        <label class="config-label">
+          Password <span class="config-optional">(optional)</span>
+          <input type="password" id="cfg-mqtt-pass" class="config-input"
+            placeholder="leave blank if not required" autocomplete="new-password">
+          <span id="cfg-mqtt-pass-hint" class="config-hint config-pass-hint" style="display:none">
+            A password is currently saved. Enter a new one to replace it, or leave blank to keep it.
+          </span>
+        </label>
+      </fieldset>
+
+      <div id="config-error" class="config-error" style="display:none"></div>
+
+      <div class="modal-actions">
+        <button id="config-cancel">Cancel</button>
+        <button id="config-save" class="primary">Save &amp; Reconnect</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

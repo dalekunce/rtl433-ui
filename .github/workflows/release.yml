@@ -25,7 +25,7 @@ jobs:
       - name: Read current version
         id: current
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p "require('./rtl433-ui/package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Bump patch version
@@ -41,19 +41,19 @@ jobs:
           # Update package.json
           node -e "
             const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const pkg = JSON.parse(fs.readFileSync('rtl433-ui/package.json', 'utf8'));
             pkg.version = '$NEW';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            fs.writeFileSync('rtl433-ui/package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
           # Update config.yaml
-          sed -i "s/^version: \"$OLD\"/version: \"$NEW\"/" config.yaml
+          sed -i "s/^version: \"$OLD\"/version: \"$NEW\"/" rtl433-ui/config.yaml
 
       - name: Commit version bump
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json config.yaml
+          git add rtl433-ui/package.json rtl433-ui/config.yaml
           git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
           git push
 
