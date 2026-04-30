@@ -35,8 +35,8 @@ COPY frontend/ ./frontend/
 # Ensure the persistent-data directory exists
 RUN mkdir -p /data
 
-# ── Entry point ───────────────────────────────────────────────────────────────
-COPY run.sh /run.sh
-RUN chmod +x /run.sh
-
-CMD ["/run.sh"]
+# ── Entry point via s6-overlay ────────────────────────────────────────────────
+# HA base images run s6 as PID 1. We must NOT override CMD — instead place
+# the run script in the s6 services directory so s6 manages it.
+COPY run.sh /etc/services.d/rtl433-ui/run
+RUN chmod +x /etc/services.d/rtl433-ui/run
