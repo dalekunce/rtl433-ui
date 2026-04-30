@@ -33,17 +33,29 @@ function getStatus() {
   return { status: procStatus, error: procError };
 }
 
+// ISM bands to hop when running with no config file and no explicit freq set.
+// Covers the four most common worldwide RTL-SDR frequencies.
+const DEFAULT_FREQS = ['433.92M', '868M', '315M', '915M'];
+
 // ── Build command-line args ────────────────────────────────────────────────
 function buildArgs() {
   const args = [];
+  const hasConfig = fs.existsSync(CONFIG_FILE);
+
   // Config file (user-uploaded, lives in persistent /data)
-  if (fs.existsSync(CONFIG_FILE)) {
+  if (hasConfig) {
     args.push('-c', CONFIG_FILE);
   }
-  // Frequency override (from UI frequency buttons)
+
+  // Frequency: explicit override > config file > default multi-band hop
   if (currentFreq) {
     args.push('-f', currentFreq);
+  } else if (!hasConfig) {
+    // No config file — hop all four ISM bands for maximum device discovery
+    for (const f of DEFAULT_FREQS) args.push('-f', f);
   }
+  // (if config file exists, its own frequency/hop settings take effect)
+
   // Always output newline-delimited JSON to stdout
   args.push('-F', 'json');
   return args;
