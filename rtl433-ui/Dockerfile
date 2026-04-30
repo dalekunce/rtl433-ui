@@ -3,13 +3,23 @@ FROM ${BUILD_FROM}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# ── Node.js 20 LTS ───────────────────────────────────────────────────────────
+# ── Node.js 22 LTS — official binary, no APT repo needed ─────────────────────
+ENV NODE_VERSION=22.14.0
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ARCH="$(uname -m)" \
+    && case "${ARCH}" in \
+         x86_64)  NODE_ARCH="x64"    ;; \
+         aarch64) NODE_ARCH="arm64"  ;; \
+         armv7l)  NODE_ARCH="armv7l" ;; \
+         *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
+       esac \
+    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+       | tar -xJ --strip-components=1 -C /usr/local \
+    && node --version \
+    && npm --version
 
 # ── Application ───────────────────────────────────────────────────────────────
 WORKDIR /app

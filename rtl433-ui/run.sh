@@ -4,12 +4,16 @@
 # Requires the rtl_433 add-on (pbkhrv/rtl_433-hass-addons) to be running
 # and publishing device events to MQTT.
 # ─────────────────────────────────────────────────────────────────────────────
+set -e
 
-MQTT_URL=$(bashio::config 'mqtt_url')
-MQTT_USERNAME=$(bashio::config 'mqtt_username')
-MQTT_PASSWORD=$(bashio::config 'mqtt_password')
-MQTT_TOPIC_PREFIX=$(bashio::config 'mqtt_topic_prefix')
-MQTT_COMMAND_TOPIC=$(bashio::config 'mqtt_command_topic')
+bashio::log.info "RTL433-UI starting up…"
+
+# Read config (second arg = default if key is missing/empty)
+MQTT_URL=$(bashio::config 'mqtt_url' 'mqtt://core-mosquitto:1883')
+MQTT_USERNAME=$(bashio::config 'mqtt_username' '')
+MQTT_PASSWORD=$(bashio::config 'mqtt_password' '')
+MQTT_TOPIC_PREFIX=$(bashio::config 'mqtt_topic_prefix' 'rtl_433')
+MQTT_COMMAND_TOPIC=$(bashio::config 'mqtt_command_topic' 'rtl_433/command')
 
 export MQTT_URL
 export MQTT_USERNAME
@@ -23,9 +27,18 @@ export PORT="3000"
 export MAPPINGS_FILE="/data/mappings.json"
 export SETTINGS_FILE="/data/settings.json"
 
-bashio::log.info "Starting RTL433-UI on port ${PORT}"
-bashio::log.info "MQTT broker: ${MQTT_URL}"
-bashio::log.info "Subscribing to: ${MQTT_TOPIC_PREFIX}/+/events"
+bashio::log.info "MQTT broker:      ${MQTT_URL}"
+bashio::log.info "Events topic:     ${MQTT_TOPIC_PREFIX}/+/events"
+bashio::log.info "Command topic:    ${MQTT_COMMAND_TOPIC}"
+bashio::log.info "Listening on:     port ${PORT}"
+
+# Verify node is available before handing off
+if ! command -v node >/dev/null 2>&1; then
+  bashio::log.fatal "node binary not found — Docker build may have failed"
+  exit 1
+fi
+
+bashio::log.info "Node.js version:  $(node --version)"
 
 cd /app
 exec node server/index.js
