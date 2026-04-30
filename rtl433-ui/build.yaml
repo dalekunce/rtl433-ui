@@ -4,8 +4,6 @@ build_from:
   aarch64: ghcr.io/home-assistant/aarch64-base-debian:bookworm
   armv7:   ghcr.io/home-assistant/armv7-base-debian:bookworm
 
-image: "ghcr.io/dalekunce/rtl433-ui/{arch}-addon-rtl433-ui"
-
 labels:
   io.hass.name:        "RTL433-UI"
   io.hass.description: "Web dashboard and MQTT mapper for RTL-SDR receivers"
