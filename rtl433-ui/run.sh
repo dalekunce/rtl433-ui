@@ -1,32 +1,31 @@
-#!/usr/bin/with-contenv bashio
+#!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# RTL433-UI – Home Assistant add-on entry point (s6 managed service)
+# RTL433-UI – Home Assistant add-on entry point
+# Reads config from /data/options.json written by the HA supervisor.
+# Uses plain bash + jq — no bashio/with-contenv/s6 dependency.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Write directly to stdout first — visible even before bashio is ready
-echo "[rtl433-ui] run.sh executing, node=$(node --version 2>/dev/null || echo 'NOT FOUND')"
+echo "[rtl433-ui] Starting... node=$(node --version 2>/dev/null || echo 'NOT FOUND')"
 
-bashio::log.info "RTL433-UI starting up…"
+OPTIONS="/data/options.json"
 
-MQTT_URL=$(bashio::config 'mqtt_url')
-MQTT_USERNAME=$(bashio::config 'mqtt_username')
-MQTT_PASSWORD=$(bashio::config 'mqtt_password')
-MQTT_TOPIC_PREFIX=$(bashio::config 'mqtt_topic_prefix')
-MQTT_COMMAND_TOPIC=$(bashio::config 'mqtt_command_topic')
+if [ ! -f "${OPTIONS}" ]; then
+    echo "[rtl433-ui] WARNING: ${OPTIONS} not found, using defaults"
+    echo "{}" > "${OPTIONS}"
+fi
 
-export MQTT_URL
-export MQTT_USERNAME
-export MQTT_PASSWORD
-export MQTT_TOPIC_PREFIX
-export MQTT_COMMAND_TOPIC
+export MQTT_URL=$(jq --raw-output '.mqtt_url // "mqtt://core-mosquitto:1883"' "${OPTIONS}")
+export MQTT_USERNAME=$(jq --raw-output '.mqtt_username // ""' "${OPTIONS}")
+export MQTT_PASSWORD=$(jq --raw-output '.mqtt_password // ""' "${OPTIONS}")
+export MQTT_TOPIC_PREFIX=$(jq --raw-output '.mqtt_topic_prefix // "rtl_433"' "${OPTIONS}")
+export MQTT_COMMAND_TOPIC=$(jq --raw-output '.mqtt_command_topic // "rtl_433/command"' "${OPTIONS}")
 export PORT="3000"
-
 export MAPPINGS_FILE="/data/mappings.json"
 export SETTINGS_FILE="/data/settings.json"
 
-bashio::log.info "MQTT broker:      ${MQTT_URL}"
-bashio::log.info "Events topic:     ${MQTT_TOPIC_PREFIX}/+/events"
-bashio::log.info "Node.js version:  $(node --version)"
+echo "[rtl433-ui] MQTT broker:   ${MQTT_URL}"
+echo "[rtl433-ui] Events topic:  ${MQTT_TOPIC_PREFIX}/+/events"
+echo "[rtl433-ui] Listening on:  port ${PORT}"
 
 cd /app
 exec node server/index.js
