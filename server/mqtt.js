@@ -8,11 +8,15 @@ let connected = false;
 function connect() {
   console.log(`[mqtt] Connecting to ${config.mqttUrl}`);
 
-  client = mqtt.connect(config.mqttUrl, {
+  const opts = {
     clientId:        `rtl433-ui-${Math.random().toString(16).slice(2, 10)}`,
     reconnectPeriod: 5_000,
     connectTimeout:  10_000,
-  });
+  };
+  if (config.mqttUsername) opts.username = config.mqttUsername;
+  if (config.mqttPassword) opts.password = config.mqttPassword;
+
+  client = mqtt.connect(config.mqttUrl, opts);
 
   client.on('connect', () => {
     connected = true;
@@ -32,16 +36,19 @@ function connect() {
   });
 }
 
-/**
- * Publish a single scalar value to its mapped MQTT topic.
- * Does nothing if the broker is unavailable or the field is not mapped.
- *
- * @param {string} topic   - MQTT topic string
- * @param {*}      value   - the field value (converted to string for publishing)
- */
-function publish(topic, value) {
+function reconnect() {
+  console.log('[mqtt] Reconnecting with new settings…');
+  if (client) {
+    client.end(true);  // force-close without waiting for in-flight messages
+    client = null;
+  }
+  connected = false;
+  connect();
+}
+
+function publish(topic, value, opts = {}) {
   if (!connected || !client || !topic) return;
-  client.publish(topic, String(value), { retain: false, qos: 0 });
+  client.publish(topic, String(value), { retain: opts.retain === true, qos: 0 });
 }
 
 function getStatus() {
@@ -50,4 +57,5 @@ function getStatus() {
 
 connect();
 
-module.exports = { publish, getStatus };
+module.exports = { publish, getStatus, reconnect };
+

@@ -58,7 +58,7 @@ rtl433.on('status', status => {
 });
 
 rtl433.on('log', line => {
-  // Forward rtl_433 informational messages to the dashboard
+  console.log(`[rtl_433 stderr] ${line}`);
   broadcast({ type: 'rtl433_log', line });
 });
 

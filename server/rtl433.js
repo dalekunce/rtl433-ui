@@ -20,7 +20,7 @@ class RTL433 extends EventEmitter {
   stop() {
     this._stopped = true;
     if (this.proc) {
-      this.proc.kill();
+      this._killGracefully(this.proc);
       this.proc    = null;
       this.running = false;
       this.emit('status', 'stopped');
@@ -37,7 +37,7 @@ class RTL433 extends EventEmitter {
   restart(frequency) {
     this._stopped = true;
     if (this.proc) {
-      this.proc.kill();
+      this._killGracefully(this.proc);
       this.proc    = null;
       this.running = false;
     }
@@ -47,10 +47,27 @@ class RTL433 extends EventEmitter {
       a !== '-f' && a !== '--frequency' && arr[i - 1] !== '-f' && arr[i - 1] !== '--frequency'
     );
     this._activeArgs = ['-f', frequency, ...base];
-    this._stopped    = false;
 
     console.log(`[rtl_433] Restarting on ${frequency}`);
-    this._startWithArgs(this._activeArgs);
+    // Delay so the killed process fully releases the USB device before
+    // the new one tries to claim it. Must be > the SIGTERM→SIGKILL window (1.5s).
+    setTimeout(() => {
+      this._stopped = false;
+      this._startWithArgs(this._activeArgs);
+    }, 2000);
+  }
+
+  /**
+   * Send SIGTERM and wait up to 1.5 s for exit; escalate to SIGKILL if needed.
+   * This gives libusb time to release the USB device before the next process claims it.
+   */
+  _killGracefully(proc) {
+    if (!proc || proc.exitCode !== null) return;
+    proc.kill('SIGTERM');
+    const guard = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch (_) {}
+    }, 1500);
+    proc.once('exit', () => clearTimeout(guard));
   }
 
   _startWithArgs(args) {

@@ -3,6 +3,7 @@ const express    = require('express');
 const store      = require('./store');
 const rtl433     = require('./rtl433');
 const mqttClient = require('./mqtt');
+const config     = require('./config');
 
 const router = express.Router();
 router.use(express.json());
@@ -50,6 +51,14 @@ router.delete('/mappings', (req, res) => {
   res.json({ ok: true });
 });
 
+// DELETE /api/devices  { model, id }
+router.delete('/devices', (req, res) => {
+  const { model, id } = req.body ?? {};
+  if (!model) return res.status(400).json({ error: '`model` is required' });
+  const removed = store.forgetDevice(model, id);
+  res.json({ ok: true, removed });
+});
+
 // POST /api/frequency  { frequency: "433.92M" }
 // Restarts rtl_433 on the requested frequency.
 const ALLOWED_FREQS = new Set(['433.92M', '315M', '868M', '915M']);
@@ -63,6 +72,54 @@ router.post('/frequency', (req, res) => {
   }
   rtl433.restart(frequency);
   res.json({ ok: true, frequency });
+});
+
+// POST /api/publish  { topic, value }
+// Immediately publishes a test message to the given MQTT topic.
+router.post('/publish', (req, res) => {
+  const { topic, value, retain } = req.body ?? {};
+  if (!topic || typeof topic !== 'string') {
+    return res.status(400).json({ error: '`topic` is required' });
+  }
+  if (/[#+]/.test(topic)) {
+    return res.status(400).json({ error: 'MQTT topic must not contain wildcard characters (# or +)' });
+  }
+  mqttClient.publish(topic, value ?? '', { retain: retain === true });
+  res.json({ ok: true });
+});
+
+// GET /api/config
+// Returns current runtime config (never returns password value).
+router.get('/config', (_req, res) => {
+  res.json({
+    mqttUrl:      config.mqttUrl,
+    mqttUsername: config.mqttUsername,
+    mqttHasPassword: !!config.mqttPassword,
+  });
+});
+
+// POST /api/config  { mqttUrl, mqttUsername, mqttPassword }
+// Saves settings and reconnects MQTT with new credentials.
+router.post('/config', (req, res) => {
+  const { mqttUrl, mqttUsername, mqttPassword } = req.body ?? {};
+
+  if (mqttUrl !== undefined) {
+    if (typeof mqttUrl !== 'string' || !mqttUrl.startsWith('mqtt')) {
+      return res.status(400).json({ error: '`mqttUrl` must start with mqtt:// or mqtts://' });
+    }
+    config.mqttUrl = mqttUrl;
+  }
+  if (mqttUsername !== undefined) config.mqttUsername = String(mqttUsername);
+  if (mqttPassword !== undefined) config.mqttPassword = String(mqttPassword);
+
+  const patch = {};
+  if (mqttUrl      !== undefined) patch.mqttUrl      = config.mqttUrl;
+  if (mqttUsername !== undefined) patch.mqttUsername = config.mqttUsername;
+  if (mqttPassword !== undefined) patch.mqttPassword = config.mqttPassword;
+  config.saveSettings(patch);
+
+  mqttClient.reconnect();
+  res.json({ ok: true });
 });
 
 module.exports = router;

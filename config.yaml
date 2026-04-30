@@ -1,0 +1,44 @@
+---
+name: RTL433-UI
+version: "1.1.0"
+slug: rtl433-ui
+description: "Live web dashboard and MQTT topic mapper for RTL-SDR receivers using rtl_433"
+url: "https://github.com/dalekunce/rtl433-ui"
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: application
+boot: auto
+
+# ── Web UI access ─────────────────────────────────────────────────────────────
+# Ingress: UI accessible from the HA sidebar without opening an extra port.
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:radio-tower
+panel_title: RTL433-UI
+
+# Direct port access (optional — useful for external tools or local dev)
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: "Web UI (also available via HA sidebar via ingress)"
+
+# ── USB device access ─────────────────────────────────────────────────────────
+# Pass through USB buses so HA can reach the RTL-SDR dongle.
+devices:
+  - /dev/bus/usb
+
+# ── User-configurable options ─────────────────────────────────────────────────
+options:
+  mqtt_url: "mqtt://core-mosquitto:1883"
+  mqtt_username: ""
+  mqtt_password: ""
+  rtl433_args: "-F json -M utc -M level"
+
+schema:
+  mqtt_url: str
+  mqtt_username: str
+  mqtt_password: str
+  rtl433_args: str
+

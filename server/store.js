@@ -69,6 +69,12 @@ function getDevices() {
   return Array.from(devices.values());
 }
 
+/** Remove a single device by model+id. Returns true if it existed. */
+function forgetDevice(model, id) {
+  const key = deviceKey(model, safeId(id));
+  return devices.delete(key);
+}
+
 /** Remove devices not seen for more than config.forgetAfterMs. */
 function purgeStale() {
   if (!config.forgetAfterMs) return;
@@ -131,6 +137,7 @@ loadMappings();
 module.exports = {
   updateDevice,
   getDevices,
+  forgetDevice,
   purgeStale,
   addMapping,
   removeMapping,
