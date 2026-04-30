@@ -1,6 +1,6 @@
 {
   "name": "rtl433-ui",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "description": "Native macOS web UI for rtl_433 — live dashboard + MQTT topic mapping",
   "main": "server/index.js",
   "scripts": {
