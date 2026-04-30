@@ -1,6 +1,6 @@
 ---
 name: RTL433-UI
-version: "1.1.14"
+version: "1.1.15"
 slug: rtl433-ui
 description: "Live web dashboard and MQTT topic mapper for RTL-SDR receivers using rtl_433"
 url: "https://github.com/dalekunce/rtl433-ui"
