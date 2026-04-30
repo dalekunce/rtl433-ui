@@ -64,7 +64,12 @@ function fieldMappings(dev) {
 let ws = null;
 
 function wsConnect() {
-  ws = new WebSocket(`ws://${location.host}`);
+  // Derive WebSocket URL from the current page location so it works both
+  // directly (ws://host:3000/) and behind HA ingress (wss://host/api/hassio_ingress/<token>/).
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Strip trailing slash from pathname so the WS path is clean.
+  const base  = location.pathname.replace(/\/$/, '');
+  ws = new WebSocket(`${proto}//${location.host}${base}`);
 
   ws.addEventListener('open', () => {
     setWsBadge('connected');
