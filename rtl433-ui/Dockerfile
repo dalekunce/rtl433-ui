@@ -3,21 +3,13 @@ FROM ${BUILD_FROM}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# ── Node.js 22 LTS — official binary, no APT repo needed ─────────────────────
-ENV NODE_VERSION=22.14.0
+# ── Node.js from Debian bookworm's official packages ─────────────────────────
+# Reliable: no external downloads, no GPG keys, no architecture detection.
+# Debian bookworm ships Node.js 18 LTS.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
+    && apt-get install -y --no-install-recommends nodejs npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
-    && ARCH="$(uname -m)" \
-    && case "${ARCH}" in \
-         x86_64)  NODE_ARCH="x64"    ;; \
-         aarch64) NODE_ARCH="arm64"  ;; \
-         armv7l)  NODE_ARCH="armv7l" ;; \
-         *) echo "Unsupported architecture: ${ARCH}" && exit 1 ;; \
-       esac \
-    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
-       | tar -xJ --strip-components=1 -C /usr/local \
     && node --version \
     && npm --version
 
@@ -39,4 +31,6 @@ RUN mkdir -p /data
 # HA base images run s6 as PID 1. We must NOT override CMD — instead place
 # the run script in the s6 services directory so s6 manages it.
 COPY run.sh /etc/services.d/rtl433-ui/run
-RUN chmod +x /etc/services.d/rtl433-ui/run
+COPY finish.sh /etc/services.d/rtl433-ui/finish
+RUN chmod a+x /etc/services.d/rtl433-ui/run \
+              /etc/services.d/rtl433-ui/finish
