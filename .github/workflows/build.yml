@@ -12,6 +12,9 @@ jobs:
       contents: read
       packages: write
 
+    env:
+      PACKAGE_NAME: rtl433-ui%2F${{ matrix.arch }}-addon-rtl433-ui
+
     strategy:
       fail-fast: false
       matrix:
@@ -61,3 +64,18 @@ jobs:
             ghcr.io/dalekunce/rtl433-ui/${{ matrix.arch }}-addon-rtl433-ui:latest
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      - name: Make package public
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.request('PATCH /user/packages/container/{package_name}', {
+                package_name: `rtl433-ui%2F${{ matrix.arch }}-addon-rtl433-ui`,
+                data: { visibility: 'public' }
+              });
+              console.log('Package set to public');
+            } catch (e) {
+              // May fail if already public — not fatal
+              console.log('Note:', e.message);
+            }
