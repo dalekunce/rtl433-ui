@@ -4,16 +4,23 @@
 # Requires the rtl_433 add-on (pbkhrv/rtl_433-hass-addons) to be running
 # and publishing device events to MQTT.
 # ─────────────────────────────────────────────────────────────────────────────
-set -e
 
 bashio::log.info "RTL433-UI starting up…"
 
-# Read config (second arg = default if key is missing/empty)
-MQTT_URL=$(bashio::config 'mqtt_url' 'mqtt://core-mosquitto:1883')
-MQTT_USERNAME=$(bashio::config 'mqtt_username' '')
-MQTT_PASSWORD=$(bashio::config 'mqtt_password' '')
-MQTT_TOPIC_PREFIX=$(bashio::config 'mqtt_topic_prefix' 'rtl_433')
-MQTT_COMMAND_TOPIC=$(bashio::config 'mqtt_command_topic' 'rtl_433/command')
+# Read config values — use bashio::config with || fallback to handle
+# edge cases where bashio returns non-zero for empty-string values.
+MQTT_URL=$(bashio::config 'mqtt_url' 2>/dev/null || echo 'mqtt://core-mosquitto:1883')
+MQTT_USERNAME=$(bashio::config 'mqtt_username' 2>/dev/null || echo '')
+MQTT_PASSWORD=$(bashio::config 'mqtt_password' 2>/dev/null || echo '')
+MQTT_TOPIC_PREFIX=$(bashio::config 'mqtt_topic_prefix' 2>/dev/null || echo 'rtl_433')
+MQTT_COMMAND_TOPIC=$(bashio::config 'mqtt_command_topic' 2>/dev/null || echo 'rtl_433/command')
+
+# Strip surrounding quotes that bashio sometimes leaves in
+MQTT_URL="${MQTT_URL//\"/}"
+MQTT_USERNAME="${MQTT_USERNAME//\"/}"
+MQTT_PASSWORD="${MQTT_PASSWORD//\"/}"
+MQTT_TOPIC_PREFIX="${MQTT_TOPIC_PREFIX//\"/}"
+MQTT_COMMAND_TOPIC="${MQTT_COMMAND_TOPIC//\"/}"
 
 export MQTT_URL
 export MQTT_USERNAME

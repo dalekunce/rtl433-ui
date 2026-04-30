@@ -24,11 +24,6 @@ ports:
 ports_description:
   3000/tcp: "Web UI (also available via HA sidebar via ingress)"
 
-# ── USB device access ─────────────────────────────────────────────────────────
-# Pass through USB buses so HA can reach the RTL-SDR dongle.
-devices:
-  - /dev/bus/usb
-
 # ── User-configurable options ─────────────────────────────────────────────────
 options:
   mqtt_url: "mqtt://core-mosquitto:1883"
