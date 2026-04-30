@@ -987,9 +987,19 @@ document.getElementById('clear-logs').addEventListener('click', e => {
   logClear();
 });
 
-document.getElementById('log-panel-toggle').addEventListener('click', () => {
+document.getElementById('log-panel-toggle').addEventListener('click', e => {
+  // Clear-logs button click should not toggle expansion
+  if (e.target.closest('#clear-logs')) return;
   const panel = document.getElementById('log-panel');
-  panel.classList.toggle('log-panel-collapsed');
+  if (panel.classList.contains('log-panel-expanded')) {
+    panel.classList.remove('log-panel-expanded');
+  } else {
+    panel.classList.remove('log-panel-collapsed');
+    panel.classList.add('log-panel-expanded');
+    // Scroll to bottom when expanding so latest logs are visible
+    const list = document.getElementById('log-list');
+    list.scrollTop = list.scrollHeight;
+  }
 });
 
 document.getElementById('clear-ignored').addEventListener('click', () => {

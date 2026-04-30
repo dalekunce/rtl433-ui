@@ -705,14 +705,24 @@ aside {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  max-height: 220px;
+  flex: 0 0 200px;   /* default: fixed 200px, scrollable */
+  min-height: 0;
   overflow: hidden;
-  transition: max-height 0.2s ease;
 }
 
+/* Collapsed: just show the header */
 #log-panel.log-panel-collapsed {
-  max-height: 37px; /* just the header */
+  flex: 0 0 38px;
+}
+
+/* Expanded: fill all remaining column space */
+#log-panel.log-panel-expanded {
+  flex: 1 1 0;
+}
+/* When log panel is expanded, hide the stream list so stream panel
+   collapses to its header only and the logs get all the space */
+aside:has(#log-panel.log-panel-expanded) #stream-list {
+  display: none;
 }
 
 .log-panel-header {
@@ -721,6 +731,16 @@ aside {
 }
 
 .log-panel-header:hover { background: var(--surface-2); }
+
+/* Expand/collapse chevron at the right of the log header */
+.log-expand-icon {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 0 4px;
+  transition: transform 0.15s;
+}
+#log-panel.log-panel-expanded .log-expand-icon { transform: rotate(180deg); }
 
 .btn-clear-logs {
   background: var(--border);
