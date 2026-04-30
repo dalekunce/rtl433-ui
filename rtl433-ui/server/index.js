@@ -16,7 +16,7 @@ const api        = require('./api');
 // ── HTTP + WebSocket server ────────────────────────────────────────────────
 const app    = express();
 const server = http.createServer(app);
-const wss    = new WebSocketServer({ server });
+const wss    = new WebSocketServer({ server, path: '/ws' });
 
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/api', api);
@@ -29,7 +29,8 @@ function broadcast(msg) {
   }
 }
 
-wss.on('connection', ws => {
+wss.on('connection', (ws, req) => {
+  console.log(`[ws] client connected from ${req.socket.remoteAddress}`);
   ws.send(JSON.stringify({
     type:     'init',
     devices:  store.getDevices(),
