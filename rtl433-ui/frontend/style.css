@@ -68,6 +68,7 @@ header h1 {
 .badge.receiving  { background: rgba(34,197,94,.14); color: var(--green); }
 .badge.stopped,
 .badge.disconnected { background: rgba(240,84,84,.14); color: var(--red); }
+.badge.starting,
 .badge.idle         { background: rgba(245,158,11,.14); color: var(--yellow); }
 .badge.waiting,
 .badge.error        { background: rgba(245,158,11,.14); color: var(--yellow); }

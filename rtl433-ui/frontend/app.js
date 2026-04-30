@@ -2,23 +2,24 @@
 
 // ── State ──────────────────────────────────────────────────────────────────
 const state = {
-  devices:       new Map(),   // "Model|id" → device object
-  mappings:      {},          // "Model.id.field" → topic
-  history:       new Map(),   // "Model|id|field" → number[] (capped at 20)
-  labels:        JSON.parse(localStorage.getItem('rtl433-labels')  || '{}'),
-  pinned:        JSON.parse(localStorage.getItem('rtl433-pinned')  || '[]'),
-  ignored:       JSON.parse(localStorage.getItem('rtl433-ignored') || '[]'),
-  mqttStatus:    'disconnected',
-  rtl433Status:  'waiting',   // 'waiting' | 'receiving' | 'idle'
-  frequency:     '433.92M',   // currently active frequency
-  scanner:       { active: false, aborted: false, results: {}, packetsThisWindow: 0 },
-  sortBySignal:  false,
-  stream:        [],
-  minRssi:       -120,
-  maxAgeMs:      0,
-  newDevices:    new Set(),
-  selectedKey:   null,  // currently highlighted device key for card-stream linking
-  expandedCards: new Set(JSON.parse(localStorage.getItem('rtl433-expanded') || '[]')),
+  devices:           new Map(),
+  mappings:          {},
+  history:           new Map(),
+  labels:            JSON.parse(localStorage.getItem('rtl433-labels')  || '{}'),
+  pinned:            JSON.parse(localStorage.getItem('rtl433-pinned')  || '[]'),
+  ignored:           JSON.parse(localStorage.getItem('rtl433-ignored') || '[]'),
+  mqttStatus:        'disconnected',
+  rtl433Status:      'waiting',    // data-flow: 'waiting' | 'receiving' | 'idle'
+  rtl433ProcStatus:  'stopped',    // process:   'stopped' | 'starting' | 'running' | 'error'
+  frequency:         '433.92M',
+  scanner:           { active: false, aborted: false, results: {}, packetsThisWindow: 0 },
+  sortBySignal:      false,
+  stream:            [],
+  minRssi:           -120,
+  maxAgeMs:          0,
+  newDevices:        new Set(),
+  selectedKey:       null,
+  expandedCards:     new Set(JSON.parse(localStorage.getItem('rtl433-expanded') || '[]')),
 };
 
 const MAX_STREAM = 60;
@@ -97,9 +98,10 @@ function setWsBadge(state) {
 function handleMessage(msg) {
   switch (msg.type) {
     case 'init':
-      state.mqttStatus   = msg.status.mqtt;
-      state.rtl433Status = msg.status.rtl433 || 'waiting';
-      state.mappings     = msg.mappings;
+      state.mqttStatus       = msg.status.mqtt;
+      state.rtl433Status     = msg.status.rtl433     || 'waiting';
+      state.rtl433ProcStatus = msg.status.rtl433proc || 'stopped';
+      state.mappings         = msg.mappings;
       state.devices.clear();
       for (const dev of msg.devices) state.devices.set(deviceKey(dev), dev);
       renderAll();
@@ -153,10 +155,11 @@ function handleMessage(msg) {
       if (msg.rtl433) {
         state.rtl433Status = msg.rtl433;
         const el = document.getElementById('status-rtl433');
-        el.textContent = `rtl_433: ${msg.rtl433}`;
+        el.textContent = `data: ${msg.rtl433}`;
         el.className   = `badge ${msg.rtl433}`;
       }
       if (msg.rtl433proc) {
+        state.rtl433ProcStatus = msg.rtl433proc;
         handleRtl433ProcStatus(msg.rtl433proc);
       }
       break;
@@ -178,8 +181,12 @@ function renderAll() {
   mqttEl.textContent = `MQTT: ${state.mqttStatus}`;
   mqttEl.className   = `badge ${state.mqttStatus}`;
 
+  const procEl = document.getElementById('status-rtl433proc');
+  procEl.textContent = `rtl_433: ${state.rtl433ProcStatus}`;
+  procEl.className   = `badge ${state.rtl433ProcStatus}`;
+
   const rtlEl = document.getElementById('status-rtl433');
-  rtlEl.textContent = `rtl_433: ${state.rtl433Status}`;
+  rtlEl.textContent = `data: ${state.rtl433Status}`;
   rtlEl.className   = `badge ${state.rtl433Status}`;
 
   updateFreqButtons(state.frequency);
@@ -1256,9 +1263,16 @@ const cfgRtlConf     = document.getElementById('cfg-rtl433-conf');
 const cfgRtlBadge    = document.getElementById('cfg-rtl433-proc-badge');
 
 function updateRtl433ProcBadge(status) {
-  if (!cfgRtlBadge) return;
-  cfgRtlBadge.textContent = status;
-  cfgRtlBadge.className   = `badge cfg-proc-badge ${status}`;
+  // Update both the header badge and the modal badge
+  const headerEl = document.getElementById('status-rtl433proc');
+  if (headerEl) {
+    headerEl.textContent = `rtl_433: ${status}`;
+    headerEl.className   = `badge ${status}`;
+  }
+  if (cfgRtlBadge) {
+    cfgRtlBadge.textContent = status;
+    cfgRtlBadge.className   = `badge cfg-proc-badge ${status}`;
+  }
 }
 
 async function openConfigModal() {
