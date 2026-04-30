@@ -64,3 +64,15 @@ jobs:
           name: v${{ steps.bump.outputs.new_version }}
           generate_release_notes: true
           make_latest: true
+
+      # Trigger the Docker build workflow so HA can pull pre-built images
+      - name: Trigger image build
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build.yml',
+              ref: 'main',
+            })

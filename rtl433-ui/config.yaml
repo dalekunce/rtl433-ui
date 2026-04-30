@@ -4,6 +4,7 @@ version: "1.1.2"
 slug: rtl433-ui
 description: "Live web dashboard and MQTT topic mapper for RTL-SDR receivers using rtl_433"
 url: "https://github.com/dalekunce/rtl433-ui"
+image: "ghcr.io/dalekunce/rtl433-ui/{arch}-addon-rtl433-ui"
 arch:
   - amd64
   - aarch64
