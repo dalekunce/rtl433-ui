@@ -672,60 +672,82 @@ function haTopicState(model, id, field) {
 // S = sensor, B = binary_sensor
 const HA_FIELD_META = {
   // Temperature
-  temperature_C:       { type: 'sensor', device_class: 'temperature',             unit: '\u00b0C' },
-  temperature_F:       { type: 'sensor', device_class: 'temperature',             unit: '\u00b0F' },
-  temperature_1_C:     { type: 'sensor', device_class: 'temperature',             unit: '\u00b0C' },
-  temperature_2_C:     { type: 'sensor', device_class: 'temperature',             unit: '\u00b0C' },
+  temperature_C:       { type: 'sensor', device_class: 'temperature',             unit: '\u00b0C',  precision: 1 },
+  temperature_F:       { type: 'sensor', device_class: 'temperature',             unit: '\u00b0F',  precision: 1 },
+  temperature_1_C:     { type: 'sensor', device_class: 'temperature',             unit: '\u00b0C',  precision: 1 },
+  temperature_2_C:     { type: 'sensor', device_class: 'temperature',             unit: '\u00b0C',  precision: 1 },
   // Humidity / moisture
-  humidity:            { type: 'sensor', device_class: 'humidity',                unit: '%' },
-  moisture:            { type: 'sensor', device_class: 'moisture',                unit: '%' },
+  humidity:            { type: 'sensor', device_class: 'humidity',                unit: '%',        precision: 1 },
+  moisture:            { type: 'sensor', device_class: 'moisture',                unit: '%',        precision: 1 },
   // Pressure
-  pressure_hPa:        { type: 'sensor', device_class: 'pressure',               unit: 'hPa' },
+  pressure_hPa:        { type: 'sensor', device_class: 'pressure',               unit: 'hPa',      precision: 1 },
   // Wind
-  wind_speed_km_h:     { type: 'sensor', device_class: 'wind_speed',             unit: 'km/h' },
-  wind_avg_km_h:       { type: 'sensor', device_class: 'wind_speed',             unit: 'km/h' },
-  wind_avg_m_s:        { type: 'sensor', device_class: 'wind_speed',             unit: 'm/s' },
-  wind_max_m_s:        { type: 'sensor', device_class: 'wind_speed',             unit: 'm/s' },
-  gust_speed_km_h:     { type: 'sensor', device_class: 'wind_speed',             unit: 'km/h' },
-  gust_speed_m_s:      { type: 'sensor', device_class: 'wind_speed',             unit: 'm/s' },
-  wind_dir_deg:        { type: 'sensor', device_class: null,                      unit: '\u00b0' },
-  wind_avg_mi_h:       { type: 'sensor', device_class: 'wind_speed',             unit: 'mi/h' },
+  wind_speed_km_h:     { type: 'sensor', device_class: 'wind_speed',             unit: 'km/h',     precision: 1 },
+  wind_avg_km_h:       { type: 'sensor', device_class: 'wind_speed',             unit: 'km/h',     precision: 1 },
+  wind_avg_m_s:        { type: 'sensor', device_class: 'wind_speed',             unit: 'm/s',      precision: 1 },
+  wind_max_m_s:        { type: 'sensor', device_class: 'wind_speed',             unit: 'm/s',      precision: 1 },
+  gust_speed_km_h:     { type: 'sensor', device_class: 'wind_speed',             unit: 'km/h',     precision: 1 },
+  gust_speed_m_s:      { type: 'sensor', device_class: 'wind_speed',             unit: 'm/s',      precision: 1 },
+  wind_dir_deg:        { type: 'sensor', device_class: null,                      unit: '\u00b0',   precision: 0 },
+  wind_avg_mi_h:       { type: 'sensor', device_class: 'wind_speed',             unit: 'mi/h',     precision: 1 },
   // Rain
-  rain_mm:             { type: 'sensor', device_class: 'precipitation',           unit: 'mm' },
-  rain_in:             { type: 'sensor', device_class: 'precipitation',           unit: 'in' },
-  rain_mm_h:           { type: 'sensor', device_class: 'precipitation_intensity', unit: 'mm/h' },
-  rain_rate_in_h:      { type: 'sensor', device_class: 'precipitation_intensity', unit: 'in/h' },
+  rain_mm:             { type: 'sensor', device_class: 'precipitation',           unit: 'mm',       precision: 1, state_class: 'total_increasing' },
+  rain_in:             { type: 'sensor', device_class: 'precipitation',           unit: 'in',       precision: 2, state_class: 'total_increasing' },
+  rain_mm_h:           { type: 'sensor', device_class: 'precipitation_intensity', unit: 'mm/h',     precision: 1 },
+  rain_rate_in_h:      { type: 'sensor', device_class: 'precipitation_intensity', unit: 'in/h',     precision: 2 },
   // Light / UV
-  lux:                 { type: 'sensor', device_class: 'illuminance',             unit: 'lx' },
-  uv:                  { type: 'sensor', device_class: null,                      unit: 'UV index' },
-  // Power
-  power_W:             { type: 'sensor', device_class: 'power',                  unit: 'W' },
+  lux:                 { type: 'sensor', device_class: 'illuminance',             unit: 'lx',       precision: 0 },
+  uv:                  { type: 'sensor', device_class: null,                      unit: 'UV index',  precision: 1 },
+  // Power / energy
+  power_W:             { type: 'sensor', device_class: 'power',                  unit: 'W',        precision: 1 },
   // Signal quality
-  rssi:                { type: 'sensor', device_class: 'signal_strength',         unit: 'dBm' },
-  snr:                 { type: 'sensor', device_class: 'signal_strength',         unit: 'dB' },
-  noise:               { type: 'sensor', device_class: 'signal_strength',         unit: 'dBm' },
+  rssi:                { type: 'sensor', device_class: 'signal_strength',         unit: 'dBm',      precision: 0 },
+  snr:                 { type: 'sensor', device_class: 'signal_strength',         unit: 'dB',       precision: 1 },
+  noise:               { type: 'sensor', device_class: 'signal_strength',         unit: 'dBm',      precision: 0 },
   // Distance / depth
-  depth_cm:            { type: 'sensor', device_class: 'distance',               unit: 'cm' },
-  storm_dist:          { type: 'sensor', device_class: 'distance',               unit: 'km' },
-  strike_distance:     { type: 'sensor', device_class: 'distance',               unit: 'km' },
-  strike_count:        { type: 'sensor', device_class: null,                      unit: 'strikes' },
+  depth_cm:            { type: 'sensor', device_class: 'distance',               unit: 'cm',       precision: 1 },
+  storm_dist:          { type: 'sensor', device_class: 'distance',               unit: 'km',       precision: 0 },
+  strike_distance:     { type: 'sensor', device_class: 'distance',               unit: 'km',       precision: 0 },
+  strike_count:        { type: 'sensor', device_class: null,                      unit: 'strikes',   precision: 0, state_class: 'total_increasing' },
+  // Air quality
+  co2_ppm:             { type: 'sensor', device_class: 'carbon_dioxide',          unit: 'ppm',      precision: 0 },
+  pm2_5:               { type: 'sensor', device_class: 'pm25',                    unit: '\u00b5g/m\u00b3', precision: 1 },
+  pm10:                { type: 'sensor', device_class: 'pm10',                    unit: '\u00b5g/m\u00b3', precision: 1 },
+  pm1_0:               { type: 'sensor', device_class: 'pm1',                     unit: '\u00b5g/m\u00b3', precision: 1 },
+  tvoc:                { type: 'sensor', device_class: 'volatile_organic_compounds_parts', unit: 'ppb', precision: 0 },
+  // Motion / occupancy / presence
+  motion:              { type: 'binary_sensor', device_class: 'motion',      payload_on: '1', payload_off: '0' },
+  occupancy:           { type: 'binary_sensor', device_class: 'occupancy',   payload_on: '1', payload_off: '0' },
+  // Door / window / lock
+  opening:             { type: 'binary_sensor', device_class: 'opening',     payload_on: '1', payload_off: '0' },
+  door:                { type: 'binary_sensor', device_class: 'door',        payload_on: '1', payload_off: '0' },
+  window:              { type: 'binary_sensor', device_class: 'window',      payload_on: '1', payload_off: '0' },
+  lock:                { type: 'binary_sensor', device_class: 'lock',        payload_on: '1', payload_off: '0' },
+  // Safety
+  smoke:               { type: 'binary_sensor', device_class: 'smoke',       payload_on: '1', payload_off: '0' },
+  co:                  { type: 'binary_sensor', device_class: 'co',          payload_on: '1', payload_off: '0' },
+  vibration:           { type: 'binary_sensor', device_class: 'vibration',   payload_on: '1', payload_off: '0' },
   // Binary sensors (battery_ok=0 means battery LOW → problem ON)
-  battery_ok:  { type: 'binary_sensor', device_class: 'battery',   payload_on: '0', payload_off: '1' },
-  alarm:       { type: 'binary_sensor', device_class: 'problem',   payload_on: '1', payload_off: '0' },
-  tamper:      { type: 'binary_sensor', device_class: 'tamper',    payload_on: '1', payload_off: '0' },
+  battery_ok:          { type: 'binary_sensor', device_class: 'battery',     payload_on: '0', payload_off: '1', value_template: '{{ value | string }}' },
+  alarm:               { type: 'binary_sensor', device_class: 'problem',     payload_on: '1', payload_off: '0' },
+  tamper:              { type: 'binary_sensor', device_class: 'tamper',      payload_on: '1', payload_off: '0' },
   // Utility meters (ERT/AMR — gas, water, electric)
-  // HA device_class 'gas' expects m³; CCF is also accepted via unit string
-  consumption:          { type: 'sensor', device_class: 'gas',             unit: 'CCF',   state_class: 'total_increasing' },
-  consumption_data:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',   state_class: 'total_increasing' },
-  current_consumption:  { type: 'sensor', device_class: 'gas',             unit: 'CCF',   state_class: 'total_increasing' },
-  last_consumption:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',   state_class: 'total_increasing' },
-  water_m3:             { type: 'sensor', device_class: 'water',           unit: 'm\u00b3', state_class: 'total_increasing' },
-  water_L:              { type: 'sensor', device_class: 'water',           unit: 'L',      state_class: 'total_increasing' },
-  energy_kWh:           { type: 'sensor', device_class: 'energy',          unit: 'kWh',    state_class: 'total_increasing' },
-  current_A:            { type: 'sensor', device_class: 'current',         unit: 'A' },
-  voltage_V:            { type: 'sensor', device_class: 'voltage',         unit: 'V' },
-  apparent_power:       { type: 'sensor', device_class: 'apparent_power',  unit: 'VA' },
+  consumption:          { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
+  consumption_data:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
+  current_consumption:  { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
+  last_consumption:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
+  water_m3:             { type: 'sensor', device_class: 'water',           unit: 'm\u00b3',    precision: 3, state_class: 'total_increasing' },
+  water_L:              { type: 'sensor', device_class: 'water',           unit: 'L',          precision: 0, state_class: 'total_increasing' },
+  energy_kWh:           { type: 'sensor', device_class: 'energy',          unit: 'kWh',        precision: 3, state_class: 'total_increasing' },
+  current_A:            { type: 'sensor', device_class: 'current',         unit: 'A',          precision: 2 },
+  voltage_V:            { type: 'sensor', device_class: 'voltage',         unit: 'V',          precision: 1 },
+  apparent_power:       { type: 'sensor', device_class: 'apparent_power',  unit: 'VA',         precision: 1 },
 };
+
+// How long HA should wait (seconds) before marking a sensor unavailable.
+// rtl_433 devices typically transmit every 30–300 s; we use a generous 3× headroom.
+// Battery-powered devices often transmit every ~60 s, so 600 s = 10 min is safe.
+const HA_EXPIRE_AFTER = 600;
 
 function haEntityType(field) {
   return (HA_FIELD_META[field] || {}).type || 'sensor';
@@ -737,20 +759,23 @@ function haDiscoveryPayload(model, id, field, stateTopic) {
   const uid      = `rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}`;
   const label    = state.labels[`${model}|${id}`] || model;
   const payload  = {
-    name:        `${label} ${field.replace(/_/g, ' ')}`,
-    unique_id:   uid,
-    state_topic: stateTopic,
-    object_id:   uid,
+    name:         `${label} ${field.replace(/_/g, ' ')}`,
+    unique_id:    uid,
+    state_topic:  stateTopic,
+    object_id:    uid,
+    expire_after: HA_EXPIRE_AFTER,
     device: {
-      identifiers: [`rtl433_${haSlug(model)}_${haSlug(id)}`],
-      name:        `${label} (${id})`,
-      model:       model,
+      identifiers:  [`rtl433_${haSlug(model)}_${haSlug(id)}`],
+      name:         `${label} (${id})`,
+      model:        model,
       manufacturer: 'rtl_433',
     },
   };
   if (meta.device_class) payload.device_class = meta.device_class;
   if (meta.unit)         payload.unit_of_measurement = meta.unit;
   if (meta.state_class)  payload.state_class = meta.state_class;
+  if (meta.precision != null) payload.suggested_display_precision = meta.precision;
+  if (meta.value_template)    payload.value_template = meta.value_template;
   if (isBinary) {
     payload.payload_on  = meta.payload_on  ?? '1';
     payload.payload_off = meta.payload_off ?? '0';
