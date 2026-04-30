@@ -69,8 +69,8 @@ setInterval(() => {
 }, 60_000);
 
 // ── Start ──────────────────────────────────────────────────────────────────
-server.listen(config.port, () => {
-  console.log(`[server] http://localhost:${config.port}`);
+server.listen(config.port, '0.0.0.0', () => {
+  console.log(`[server] http://0.0.0.0:${config.port}`);
 });
 
 process.on('SIGINT', () => {
