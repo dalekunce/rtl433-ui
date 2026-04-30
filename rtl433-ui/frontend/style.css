@@ -1095,13 +1095,85 @@ aside:has(#log-panel.log-panel-expanded) #stream-list {
 .btn-scan:disabled { opacity: 0.5; cursor: default; }
 
 #scan-results {
-  padding: 8px 38px 8px 14px;
+  padding: 8px 12px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
-  position: relative;
   flex-shrink: 0;
 }
 
+/* Header row: pass label + window buttons + stop */
+.scan-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.scan-pass-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex: 1;
+}
+.scan-window-btns {
+  display: flex;
+  gap: 3px;
+}
+.btn-scan-window {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.btn-scan-window.active,
+.btn-scan-window:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.scan-stop-btn {
+  background: rgba(240,84,84,.12);
+  border: 1px solid rgba(240,84,84,.3);
+  border-radius: 4px;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.scan-stop-btn:hover { background: rgba(240,84,84,.22); }
+
+/* Progress bar */
+.scan-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.scan-progress-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.scan-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s linear;
+}
+.scan-progress-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+/* Results grid */
 .scan-results-grid {
   display: grid;
   grid-template-columns: 68px 1fr 52px;
@@ -1110,7 +1182,8 @@ aside:has(#log-panel.log-panel-expanded) #stream-list {
 }
 
 .scan-freq { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
-.scan-freq.best { color: var(--green); font-weight: 700; }
+.scan-freq.best     { color: var(--green); font-weight: 700; }
+.scan-freq.scanning { color: var(--accent); font-weight: 600; }
 
 .scan-bar-wrap {
   height: 6px;
@@ -1131,17 +1204,7 @@ aside:has(#log-panel.log-panel-expanded) #stream-list {
   font-family: var(--mono);
 }
 
-.scan-status {
-  font-size: 12px;
-  color: var(--text-dim);
-  font-style: italic;
-}
-
 .scan-close {
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--text-dim);

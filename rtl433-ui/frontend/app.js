@@ -1181,72 +1181,185 @@ document.getElementById('freq-toolbar').addEventListener('click', async e => {
 });
 
 // ── Frequency scanner ─────────────────────────────────────────────────────────
-const SCAN_FREQS     = ['433.92M', '315M', '868M', '915M'];
-const SCAN_WINDOW_MS = 9000;
+const SCAN_FREQS = ['433.92M', '315M', '868M', '915M'];
+
+// Duration options in ms per band per pass
+const SCAN_WINDOWS = { '30s': 30_000, '1m': 60_000, '5m': 300_000 };
+
+// Scanner extended state (on top of state.scanner)
+let scanWindowMs   = 60_000;   // default: 1 min per band
+let scanTimerEnd   = 0;        // absolute ms when current window ends
+let scanTimerRaf   = null;     // rAF handle for progress bar
+let scanPassCount  = 0;        // how many full passes completed
+let scanFreqIdx    = 0;        // which freq we are currently on
 
 function abortScan() {
   state.scanner.active  = false;
   state.scanner.aborted = true;
+  if (scanTimerRaf) { cancelAnimationFrame(scanTimerRaf); scanTimerRaf = null; }
   const btn = document.getElementById('btn-scan');
   btn.disabled    = false;
-  btn.textContent = 'Scan bands';
-  document.getElementById('scan-results').style.display = 'none';
+  btn.textContent = '⏵ Scan bands';
+  renderScanResults(false); // show final results, keep panel open
+}
+
+// Animate the progress bar for the current window
+function tickScanProgress() {
+  if (!state.scanner.active) return;
+  const remaining = Math.max(0, scanTimerEnd - Date.now());
+  const pct       = 100 - Math.round((remaining / scanWindowMs) * 100);
+  const barEl     = document.getElementById('scan-progress-bar');
+  if (barEl) barEl.style.width = `${pct}%`;
+
+  const labelEl = document.getElementById('scan-progress-label');
+  if (labelEl) {
+    const secLeft = Math.ceil(remaining / 1000);
+    labelEl.textContent = `${SCAN_FREQS[scanFreqIdx]} — ${secLeft}s left`;
+  }
+  scanTimerRaf = requestAnimationFrame(tickScanProgress);
+}
+
+async function tuneTo(freq) {
+  try {
+    await fetch(API_BASE + '/api/frequency', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ frequency: freq }),
+    });
+  } catch { /* network error - continue scan */ }
 }
 
 async function startScan() {
   if (state.scanner.active) return;
-  state.scanner.active  = true;
-  state.scanner.aborted = false;
-  state.scanner.results = {};
+  state.scanner.active        = true;
+  state.scanner.aborted       = false;
+  state.scanner.results       = {};
+  state.scanner.packetsThisWindow = 0;
+  scanPassCount = 0;
+  scanFreqIdx   = 0;
 
   const btn       = document.getElementById('btn-scan');
   const resultsEl = document.getElementById('scan-results');
   btn.disabled            = true;
   resultsEl.style.display = '';
+  renderScanLive();
 
-  for (let i = 0; i < SCAN_FREQS.length; i++) {
-    if (state.scanner.aborted) return;
-    const freq = SCAN_FREQS[i];
+  // Continuous multi-pass loop — runs until abortScan() is called
+  while (state.scanner.active) {
+    const freq = SCAN_FREQS[scanFreqIdx];
     state.scanner.packetsThisWindow = 0;
-    resultsEl.innerHTML = `<span class="scan-status">Scanning ${escHtml(freq)}... (${i + 1}/${SCAN_FREQS.length})</span>`;
-    try {
-      await fetch(API_BASE + '/api/frequency', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ frequency: freq }),
-      });
-    } catch { /* network error - continue */ }
-    await new Promise(r => setTimeout(r, SCAN_WINDOW_MS));
-    if (state.scanner.aborted) return;
-    state.scanner.results[freq] = state.scanner.packetsThisWindow;
-  }
+    scanTimerEnd = Date.now() + scanWindowMs;
 
-  state.scanner.active = false;
-  btn.disabled         = false;
-  btn.textContent      = 'Scan bands';
-  renderScanResults();
+    await tuneTo(freq);
+
+    // Start progress animation
+    if (scanTimerRaf) cancelAnimationFrame(scanTimerRaf);
+    scanTimerRaf = requestAnimationFrame(tickScanProgress);
+
+    // Wait for the window
+    await new Promise(r => setTimeout(r, scanWindowMs));
+    if (scanTimerRaf) { cancelAnimationFrame(scanTimerRaf); scanTimerRaf = null; }
+
+    if (state.scanner.aborted) return;
+
+    // Accumulate results (add this window's count to running total)
+    state.scanner.results[freq] = (state.scanner.results[freq] ?? 0) + state.scanner.packetsThisWindow;
+
+    // Advance to next band
+    scanFreqIdx = (scanFreqIdx + 1) % SCAN_FREQS.length;
+    if (scanFreqIdx === 0) scanPassCount++;
+
+    renderScanLive();
+  }
 }
 
-function renderScanResults() {
-  const el      = document.getElementById('scan-results');
+function renderScanLive() {
+  const el = document.getElementById('scan-results');
+  if (!el) return;
   const results = state.scanner.results;
-  const max     = Math.max(...Object.values(results), 1);
+  const max     = Math.max(...SCAN_FREQS.map(f => results[f] ?? 0), 1);
   const best    = SCAN_FREQS.reduce((b, f) =>
     (results[f] ?? 0) > (results[b] ?? 0) ? f : b, SCAN_FREQS[0]);
+  const hasCounts = SCAN_FREQS.some(f => (results[f] ?? 0) > 0);
 
   el.innerHTML =
-    '<div class="scan-results-grid">' +
+    `<div class="scan-header-row">` +
+    `<span class="scan-pass-label">Pass ${scanPassCount + 1} &middot; ${scanWindowLabel()}/band</span>` +
+    `<div class="scan-window-btns">` +
+    Object.keys(SCAN_WINDOWS).map(k =>
+      `<button class="btn-scan-window${scanWindowMs === SCAN_WINDOWS[k] ? ' active' : ''}" data-ms="${SCAN_WINDOWS[k]}">${k}</button>`
+    ).join('') +
+    `</div>` +
+    `<button class="scan-stop-btn" id="btn-scan-stop">⏹ Stop</button>` +
+    `</div>` +
+    `<div class="scan-progress-wrap">` +
+    `<div class="scan-progress-track"><div class="scan-progress-bar" id="scan-progress-bar" style="width:0%"></div></div>` +
+    `<span class="scan-progress-label" id="scan-progress-label">${SCAN_FREQS[scanFreqIdx]}</span>` +
+    `</div>` +
+    `<div class="scan-results-grid">` +
     SCAN_FREQS.map(f => {
       const n      = results[f] ?? 0;
       const w      = Math.round((n / max) * 100);
-      const isBest = f === best && n > 0;
+      const isBest = f === best && hasCounts;
+      const isActive = state.scanner.active && f === SCAN_FREQS[scanFreqIdx];
+      const color  = isBest ? 'var(--green)' : isActive ? 'var(--accent)' : 'var(--text-dim)';
+      return `<span class="scan-freq${isBest ? ' best' : ''}${isActive ? ' scanning' : ''}">${escHtml(f)}</span>` +
+             `<span class="scan-bar-wrap"><span class="scan-bar" style="width:${w}%;background:${color}"></span></span>` +
+             `<span class="scan-count">${n} pkt</span>`;
+    }).join('') +
+    `</div>`;
+
+  document.getElementById('btn-scan-stop')?.addEventListener('click', abortScan);
+  document.querySelectorAll('.btn-scan-window').forEach(b => {
+    b.addEventListener('click', () => {
+      scanWindowMs = parseInt(b.dataset.ms, 10);
+      renderScanLive(); // re-render to update active button
+    });
+  });
+}
+
+function renderScanResults(keepOpen = true) {
+  const el = document.getElementById('scan-results');
+  if (!el) return;
+  const results = state.scanner.results;
+  const max     = Math.max(...SCAN_FREQS.map(f => results[f] ?? 0), 1);
+  const best    = SCAN_FREQS.reduce((b, f) =>
+    (results[f] ?? 0) > (results[b] ?? 0) ? f : b, SCAN_FREQS[0]);
+  const hasCounts = SCAN_FREQS.some(f => (results[f] ?? 0) > 0);
+
+  if (!keepOpen && !hasCounts) {
+    el.style.display = 'none';
+    document.getElementById('btn-scan').disabled    = false;
+    document.getElementById('btn-scan').textContent = '⏵ Scan bands';
+    return;
+  }
+
+  el.innerHTML =
+    `<div class="scan-header-row">` +
+    `<span class="scan-pass-label">Scan complete &middot; ${scanPassCount} pass${scanPassCount !== 1 ? 'es' : ''}</span>` +
+    `<button class="scan-close" id="btn-scan-dismiss">Dismiss</button>` +
+    `</div>` +
+    `<div class="scan-results-grid">` +
+    SCAN_FREQS.map(f => {
+      const n      = results[f] ?? 0;
+      const w      = Math.round((n / max) * 100);
+      const isBest = f === best && hasCounts;
       const color  = isBest ? 'var(--green)' : 'var(--accent)';
       return `<span class="scan-freq${isBest ? ' best' : ''}">${escHtml(f)}</span>` +
              `<span class="scan-bar-wrap"><span class="scan-bar" style="width:${w}%;background:${color}"></span></span>` +
              `<span class="scan-count">${n} pkt</span>`;
     }).join('') +
-    '</div>' +
-    `<button class="scan-close" onclick="document.getElementById('scan-results').style.display='none'">X dismiss</button>`;
+    `</div>`;
+
+  document.getElementById('btn-scan-dismiss')?.addEventListener('click', () => {
+    el.style.display = 'none';
+    document.getElementById('btn-scan').disabled    = false;
+    document.getElementById('btn-scan').textContent = '⏵ Scan bands';
+  });
+}
+
+function scanWindowLabel() {
+  return Object.entries(SCAN_WINDOWS).find(([, ms]) => ms === scanWindowMs)?.[0] ?? '?';
 }
 
 document.getElementById('btn-scan').addEventListener('click', startScan);
