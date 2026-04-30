@@ -192,4 +192,8 @@ function writeConfig(text) {
 // the process exits and we retry with backoff — visible in the log panel.
 start();
 
-module.exports = { start, stop, restart, setFrequency, readConfig, writeConfig, getStatus, on: emitter.on.bind(emitter) };
+function getFrequency() {
+  return currentFreq; // null means auto/multi-band
+}
+
+module.exports = { start, stop, restart, setFrequency, getFrequency, readConfig, writeConfig, getStatus, on: emitter.on.bind(emitter) };
