@@ -41,8 +41,12 @@ const base = {
   mqttUrl:       process.env.MQTT_URL                       || 'mqtt://localhost:1883',
   mqttUsername:  process.env.MQTT_USERNAME                  || '',
   mqttPassword:  process.env.MQTT_PASSWORD                  || '',
-  rtl433Bin:     process.env.RTL433_BIN                     || '/opt/homebrew/bin/rtl_433',
-  rtl433Args:    (process.env.RTL433_ARGS                   || '-F json -M utc -M level').split(/\s+/).filter(Boolean),
+  // Topic prefix used by the rtl_433 add-on (pbkhrv/rtl_433-hass-addons).
+  // We subscribe to  <prefix>/+/events  for full JSON device packets.
+  mqttTopicPrefix:    process.env.MQTT_TOPIC_PREFIX         || 'rtl_433',
+  // Topic to publish rtl_433 commands to (e.g. frequency changes).
+  // rtl_433 must be configured to subscribe to this topic for commands to work.
+  mqttCommandTopic:   process.env.MQTT_COMMAND_TOPIC        || 'rtl_433/command',
   mappingsFile:  process.env.MAPPINGS_FILE                  || path.join(__dirname, '../config/mappings.json'),
   forgetAfterMs: parseInt(process.env.FORGET_AFTER_SECONDS  || '0', 10) * 1000,
 };

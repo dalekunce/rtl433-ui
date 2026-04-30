@@ -34,11 +34,13 @@ options:
   mqtt_url: "mqtt://core-mosquitto:1883"
   mqtt_username: ""
   mqtt_password: ""
-  rtl433_args: "-F json -M utc -M level"
+  mqtt_topic_prefix: "rtl_433"
+  mqtt_command_topic: "rtl_433/command"
 
 schema:
   mqtt_url: str
   mqtt_username: str
   mqtt_password: str
-  rtl433_args: str
+  mqtt_topic_prefix: str
+  mqtt_command_topic: str
 

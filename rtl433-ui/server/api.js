@@ -1,7 +1,6 @@
 'use strict';
 const express    = require('express');
 const store      = require('./store');
-const rtl433     = require('./rtl433');
 const mqttClient = require('./mqtt');
 const config     = require('./config');
 
@@ -11,10 +10,23 @@ router.use(express.json());
 // GET /api/status
 router.get('/status', (_req, res) => {
   res.json({
-    rtl433:    rtl433.getStatus(),
-    mqtt:      mqttClient.getStatus(),
-    frequency: rtl433.getFrequency(),
+    mqtt:    mqttClient.getStatus(),
+    rtl433:  store.getRtl433Status(),
   });
+});
+
+// POST /api/frequency  { frequency: '433.92M' }
+// Sends an MQTT command to rtl_433 to tune to the given frequency.
+// rtl_433 must be configured to subscribe to the command topic for this to work.
+router.post('/frequency', (req, res) => {
+  const { frequency } = req.body ?? {};
+  // Accept formats like 433.92M, 315M, 868M, 915M
+  if (!frequency || !/^[\d.]+[MkKgG]$/.test(String(frequency))) {
+    return res.status(400).json({ error: 'Invalid frequency (e.g. "433.92M")' });
+  }
+  const cmd = JSON.stringify({ cmd: 'set_freq', freq: String(frequency) });
+  mqttClient.publish(config.mqttCommandTopic, cmd);
+  res.json({ ok: true, frequency });
 });
 
 // GET /api/devices
@@ -57,21 +69,6 @@ router.delete('/devices', (req, res) => {
   if (!model) return res.status(400).json({ error: '`model` is required' });
   const removed = store.forgetDevice(model, id);
   res.json({ ok: true, removed });
-});
-
-// POST /api/frequency  { frequency: "433.92M" }
-// Restarts rtl_433 on the requested frequency.
-const ALLOWED_FREQS = new Set(['433.92M', '315M', '868M', '915M']);
-
-router.post('/frequency', (req, res) => {
-  const { frequency } = req.body ?? {};
-  if (!frequency || !ALLOWED_FREQS.has(frequency)) {
-    return res.status(400).json({
-      error: `frequency must be one of: ${[...ALLOWED_FREQS].join(', ')}`,
-    });
-  }
-  rtl433.restart(frequency);
-  res.json({ ok: true, frequency });
 });
 
 // POST /api/publish  { topic, value }

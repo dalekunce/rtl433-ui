@@ -8,15 +8,15 @@ const state = {
   labels:        JSON.parse(localStorage.getItem('rtl433-labels')  || '{}'),
   pinned:        JSON.parse(localStorage.getItem('rtl433-pinned')  || '[]'),
   ignored:       JSON.parse(localStorage.getItem('rtl433-ignored') || '[]'),
-  rtl433Status:  'stopped',
   mqttStatus:    'disconnected',
-  frequency:     null,
+  rtl433Status:  'waiting',   // 'waiting' | 'receiving' | 'idle'
+  frequency:     '433.92M',   // currently active frequency
+  scanner:       { active: false, aborted: false, results: {}, packetsThisWindow: 0 },
   sortBySignal:  false,
   stream:        [],
   minRssi:       -120,
   maxAgeMs:      0,
   newDevices:    new Set(),
-  scanner:       { active: false, aborted: false, results: {}, packetsThisWindow: 0 },
   selectedKey:   null,  // currently highlighted device key for card-stream linking
   expandedCards: new Set(JSON.parse(localStorage.getItem('rtl433-expanded') || '[]')),
 };
@@ -88,46 +88,12 @@ function setWsBadge(state) {
   el.className   = `badge ${state}`;
 }
 
-// ── Radar animation (rAF-driven, Safari-safe) ────────────────────────────
-const radarGroup  = document.getElementById('radar-sweep-group');
-let   radarAngle  = 0;
-let   radarRafId  = null;
-const RADAR_DEG_PER_MS = 360 / 2400; // full rotation in 2.4 s
-
-function radarStep(ts) {
-  if (!radarStep._last) radarStep._last = ts;
-  radarAngle = (radarAngle + (ts - radarStep._last) * RADAR_DEG_PER_MS) % 360;
-  radarStep._last = ts;
-  radarGroup.setAttribute('transform', `translate(30,30) rotate(${radarAngle})`);
-  radarRafId = requestAnimationFrame(radarStep);
-}
-
-function setRadar(rtl433Status) {
-  const wrap = document.getElementById('radar-wrap');
-  wrap.className = rtl433Status === 'running' ? 'radar-running' : 'radar-stopped';
-
-  if (rtl433Status === 'running') {
-    if (!radarRafId) {
-      radarStep._last = null;
-      radarRafId = requestAnimationFrame(radarStep);
-    }
-  } else {
-    if (radarRafId) {
-      cancelAnimationFrame(radarRafId);
-      radarRafId = null;
-    }
-  }
-}
-
 // ── Message dispatcher ─────────────────────────────────────────────────────
 function handleMessage(msg) {
   switch (msg.type) {
     case 'init':
-      // Abort any in-progress scan — server restarted
-      if (state.scanner.active) abortScan();
-      state.rtl433Status = msg.status.rtl433;
       state.mqttStatus   = msg.status.mqtt;
-      state.frequency    = msg.status.frequency;
+      state.rtl433Status = msg.status.rtl433 || 'waiting';
       state.mappings     = msg.mappings;
       state.devices.clear();
       for (const dev of msg.devices) state.devices.set(deviceKey(dev), dev);
@@ -138,6 +104,8 @@ function handleMessage(msg) {
       const dev  = msg.device;
       const dkey = deviceKey(dev);
       const isNew = !state.devices.has(dkey);
+      // Count packets for the band scanner
+      if (state.scanner.active) state.scanner.packetsThisWindow++;
       for (const [field, { value }] of Object.entries(dev.fields)) {
         if (typeof value !== 'number') continue;
         const hkey = `${dkey}|${field}`;
@@ -146,7 +114,6 @@ function handleMessage(msg) {
         arr.push(value);
         if (arr.length > 20) arr.shift();
       }
-      if (state.scanner.active) state.scanner.packetsThisWindow++;
       state.devices.set(dkey, dev);
       if (isNew) {
         state.newDevices.add(dkey);
@@ -172,22 +139,17 @@ function handleMessage(msg) {
       break;
 
     case 'status_update':
-      if (msg.rtl433) {
-        state.rtl433Status = msg.rtl433;
-        const el = document.getElementById('status-rtl433');
-        el.textContent = `rtl_433: ${msg.rtl433}`;
-        el.className   = `badge ${msg.rtl433}`;
-        setRadar(msg.rtl433);
-      }
       if (msg.mqtt) {
         state.mqttStatus = msg.mqtt;
         const el = document.getElementById('status-mqtt');
         el.textContent = `MQTT: ${msg.mqtt}`;
         el.className   = `badge ${msg.mqtt}`;
       }
-      if (msg.frequency !== undefined) {
-        state.frequency = msg.frequency;
-        updateFreqButtons(msg.frequency);
+      if (msg.rtl433) {
+        state.rtl433Status = msg.rtl433;
+        const el = document.getElementById('status-rtl433');
+        el.textContent = `rtl_433: ${msg.rtl433}`;
+        el.className   = `badge ${msg.rtl433}`;
       }
       break;
   }
@@ -195,15 +157,14 @@ function handleMessage(msg) {
 
 // ── Full render ─────────────────────────────────────────────────────────────
 function renderAll() {
-  // Status badges
-  const rtlEl  = document.getElementById('status-rtl433');
   const mqttEl = document.getElementById('status-mqtt');
-  rtlEl.textContent  = `rtl_433: ${state.rtl433Status}`;
-  rtlEl.className    = `badge ${state.rtl433Status}`;
   mqttEl.textContent = `MQTT: ${state.mqttStatus}`;
   mqttEl.className   = `badge ${state.mqttStatus}`;
 
-  setRadar(state.rtl433Status);
+  const rtlEl = document.getElementById('status-rtl433');
+  rtlEl.textContent = `rtl_433: ${state.rtl433Status}`;
+  rtlEl.className   = `badge ${state.rtl433Status}`;
+
   updateFreqButtons(state.frequency);
   renderDevices();
   renderMappings();
@@ -1130,9 +1091,11 @@ document.getElementById('freq-toolbar').addEventListener('click', async e => {
       try { msg = (await res.json()).error ?? msg; } catch { /* non-JSON body */ }
       alert(`Frequency change failed: ${msg}`);
       updateFreqButtons(state.frequency); // revert UI
+    } else {
+      // Command sent to rtl_433 via MQTT — update state optimistically
+      state.frequency = freq;
+      updateFreqButtons(freq);
     }
-    // On success, the server broadcasts a status_update with the new frequency,
-    // which calls updateFreqButtons() automatically.
   } catch (err) {
     alert(`Network error switching frequency: ${err.message}`);
     updateFreqButtons(state.frequency);

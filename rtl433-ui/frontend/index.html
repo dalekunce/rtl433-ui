@@ -12,7 +12,7 @@
   <header>
     <h1>rtl433-ui</h1>
     <div class="status-bar">
-      <span id="status-rtl433" class="badge stopped">rtl_433: stopped</span>
+      <span id="status-rtl433" class="badge waiting">rtl_433: waiting</span>
       <span id="status-mqtt"   class="badge disconnected">MQTT: disconnected</span>
       <span id="status-ws"     class="badge disconnected">WS: connecting…</span>
     </div>
@@ -36,52 +36,27 @@
           <button class="btn-age" data-ms="600000">10m</button>
           <button class="btn-age" data-ms="60000">1m</button>
         </div>
-        <button id="clear-ignored" class="btn-text" title="Restore hidden devices" style="display:none">Show ignored</button>
-      </div>
-
-      <!-- Frequency scanner toolbar -->
-      <div id="freq-toolbar">
-
-        <!-- Radar sweep graphic -->
-        <div id="radar-wrap" class="radar-stopped" title="rtl_433 scan status">
-          <svg id="radar-svg" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <!-- Background rings -->
-            <circle cx="30" cy="30" r="26" class="radar-ring"/>
-            <circle cx="30" cy="30" r="18" class="radar-ring"/>
-            <circle cx="30" cy="30" r="10" class="radar-ring"/>
-            <!-- Cross-hairs -->
-            <line x1="30" y1="4"  x2="30" y2="56" class="radar-cross"/>
-            <line x1="4"  y1="30" x2="56" y2="30" class="radar-cross"/>
-            <!-- Sweep group drawn at origin (0,0); JS rAF sets transform="translate(30,30) rotate(N)" -->
-            <g id="radar-sweep-group" transform="translate(30,30) rotate(0)">
-              <path id="radar-sweep" d="M0,0 L26,0 A26,26 0 0,0 0,-26 Z"/>
-              <line id="radar-arm" x1="0" y1="0" x2="26" y2="0" class="radar-arm"/>
-            </g>
-            <!-- Centre dot -->
-            <circle cx="30" cy="30" r="2" class="radar-dot"/>
-          </svg>
-        </div>
-
-        <span class="freq-label">Scan frequency:</span>
-        <div class="freq-buttons">
-          <button class="btn-freq active" data-freq="433.92M" title="433.92 MHz — EU/global default (weather stations, fan remotes, door sensors)">433.92 MHz</button>
-          <button class="btn-freq" data-freq="315M"    title="315 MHz — older US devices (garage doors, car fobs)">315 MHz</button>
-          <button class="btn-freq" data-freq="868M"    title="868 MHz — European smart home (Z-Wave EU, Somfy)">868 MHz</button>
-          <button class="btn-freq" data-freq="915M"    title="915 MHz — US ISM band (some weather stations, LoRa)">915 MHz</button>
-        </div>
         <label class="rssi-filter-wrap" title="Hide devices with RSSI below this threshold">
           RSSI ≥ <span id="rssi-filter-val">All</span>
           <input type="range" id="rssi-filter" min="-120" max="-40" step="5" value="-120">
         </label>
-        <button id="btn-scan" class="btn-scan" title="Scan all four bands — 9 s per band (~36 s total)">🔍 Scan bands</button>
+        <button id="clear-ignored" class="btn-text" title="Restore hidden devices" style="display:none">Show ignored</button>
       </div>
 
-      <!-- Scan results (shown after a scan completes) -->
-      <div id="scan-results" style="display:none"></div>
+      <!-- Frequency selector — commands sent to rtl_433 via MQTT command topic -->
+      <div id="freq-toolbar">
+        <span class="freq-label">Frequency:</span>
+        <button class="btn-freq active" data-freq="433.92M">433.92 MHz</button>
+        <button class="btn-freq" data-freq="315M">315 MHz</button>
+        <button class="btn-freq" data-freq="868M">868 MHz</button>
+        <button class="btn-freq" data-freq="915M">915 MHz</button>
+        <button id="btn-scan" class="btn-scan">&#128269; Scan bands</button>
+      </div>
+      <div id="scan-results"></div>
       </div><!-- /.devices-top -->
 
       <div id="devices-list">
-        <p class="empty">Waiting for rtl_433 data…</p>
+        <p class="empty">Waiting for MQTT data…</p>
       </div>
     </section>
 

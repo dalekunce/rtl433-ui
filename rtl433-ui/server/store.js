@@ -134,6 +134,19 @@ function getMappingsForDevice(model, id) {
 
 loadMappings();
 
+// ── rtl_433 data-flow status ──────────────────────────────────────────────
+let _lastDataAt = 0;
+const RTL433_IDLE_MS = 30_000; // 30 s without a packet → consider idle
+
+function recordDataReceived() {
+  _lastDataAt = Date.now();
+}
+
+function getRtl433Status() {
+  if (_lastDataAt === 0) return 'waiting';
+  return (Date.now() - _lastDataAt) < RTL433_IDLE_MS ? 'receiving' : 'idle';
+}
+
 module.exports = {
   updateDevice,
   getDevices,
@@ -143,4 +156,6 @@ module.exports = {
   removeMapping,
   getMappings,
   getMappingsForDevice,
+  recordDataReceived,
+  getRtl433Status,
 };

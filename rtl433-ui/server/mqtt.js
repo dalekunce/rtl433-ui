@@ -1,9 +1,19 @@
 'use strict';
-const mqtt   = require('mqtt');
-const config = require('./config');
+const mqtt         = require('mqtt');
+const { EventEmitter } = require('events');
+const config       = require('./config');
 
-let client    = null;
-let connected = false;
+const emitter  = new EventEmitter();
+let client     = null;
+let connected  = false;
+
+function _subscribe() {
+  const topic = `${config.mqttTopicPrefix}/+/events`;
+  client.subscribe(topic, { qos: 0 }, err => {
+    if (err) console.error(`[mqtt] Subscribe error: ${err.message}`);
+    else     console.log(`[mqtt] Subscribed to ${topic}`);
+  });
+}
 
 function connect() {
   console.log(`[mqtt] Connecting to ${config.mqttUrl}`);
@@ -21,6 +31,8 @@ function connect() {
   client.on('connect', () => {
     connected = true;
     console.log('[mqtt] Connected');
+    _subscribe();
+    emitter.emit('status', 'connected');
   });
 
   client.on('reconnect', () => {
@@ -33,13 +45,21 @@ function connect() {
 
   client.on('close', () => {
     connected = false;
+    emitter.emit('status', 'disconnected');
+  });
+
+  client.on('message', (topic, payload) => {
+    try {
+      const data = JSON.parse(payload.toString());
+      emitter.emit('data', data);
+    } catch { /* skip non-JSON */ }
   });
 }
 
 function reconnect() {
   console.log('[mqtt] Reconnecting with new settings…');
   if (client) {
-    client.end(true);  // force-close without waiting for in-flight messages
+    client.end(true);
     client = null;
   }
   connected = false;
@@ -57,5 +77,5 @@ function getStatus() {
 
 connect();
 
-module.exports = { publish, getStatus, reconnect };
+module.exports = { publish, getStatus, reconnect, on: emitter.on.bind(emitter) };
 

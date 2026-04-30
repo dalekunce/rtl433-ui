@@ -6,7 +6,6 @@ const { WebSocketServer } = require('ws');
 
 const config     = require('./config');
 const store      = require('./store');
-const rtl433     = require('./rtl433');
 const mqttClient = require('./mqtt');
 const api        = require('./api');
 
@@ -27,17 +26,17 @@ function broadcast(msg) {
 }
 
 wss.on('connection', ws => {
-  // Send full current state to the new client immediately
   ws.send(JSON.stringify({
     type:     'init',
     devices:  store.getDevices(),
     mappings: store.getMappings(),
-    status:   { rtl433: rtl433.getStatus(), mqtt: mqttClient.getStatus(), frequency: rtl433.getFrequency() },
+    status:   { mqtt: mqttClient.getStatus(), rtl433: store.getRtl433Status() },
   }));
 });
 
-// ── rtl_433 events ─────────────────────────────────────────────────────────
-rtl433.on('data', data => {
+// ── Device data from MQTT (published by rtl_433 add-on) ───────────────────
+mqttClient.on('data', data => {
+  store.recordDataReceived();
   const dev = store.updateDevice(data);
   if (!dev) return;
 
@@ -53,14 +52,15 @@ rtl433.on('data', data => {
   broadcast({ type: 'raw', data });
 });
 
-rtl433.on('status', status => {
-  broadcast({ type: 'status_update', rtl433: status, frequency: rtl433.getFrequency() });
+// ── MQTT connection status → broadcast ────────────────────────────────────
+mqttClient.on('status', status => {
+  broadcast({ type: 'status_update', mqtt: status });
 });
 
-rtl433.on('log', line => {
-  console.log(`[rtl_433 stderr] ${line}`);
-  broadcast({ type: 'rtl433_log', line });
-});
+// ── rtl_433 data-flow status → broadcast every 5 s ────────────────────────
+setInterval(() => {
+  broadcast({ type: 'status_update', rtl433: store.getRtl433Status() });
+}, 5_000);
 
 // Purge stale devices every 60 s and push a full refresh to clients
 setInterval(() => {
@@ -71,11 +71,9 @@ setInterval(() => {
 // ── Start ──────────────────────────────────────────────────────────────────
 server.listen(config.port, () => {
   console.log(`[server] http://localhost:${config.port}`);
-  rtl433.start();
 });
 
 process.on('SIGINT', () => {
   console.log('\n[server] Shutting down…');
-  rtl433.stop();
   process.exit(0);
 });
