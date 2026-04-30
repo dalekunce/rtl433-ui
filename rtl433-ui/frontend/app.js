@@ -1,5 +1,11 @@
 'use strict';
 
+// ── Ingress-aware API base path ────────────────────────────────────────────
+// When served via HA ingress the page is at /api/hassio_ingress/<token>/.
+// All fetch(API_BASE + '/api/...') calls must be prefixed with that base so requests
+// route back through the ingress proxy to this add-on, not to HA itself.
+const API_BASE = location.pathname === '/' ? '' : location.pathname.replace(/\/$/, '');
+
 // ── State ──────────────────────────────────────────────────────────────────
 const state = {
   devices:           new Map(),
@@ -818,7 +824,7 @@ async function saveMapping() {
   if (!topic || !pendingMap) return;
 
   const { model, id, field } = pendingMap;
-  const res = await fetch('/api/mappings', {
+  const res = await fetch(API_BASE + '/api/mappings', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ model, id, field, topic }),
@@ -836,7 +842,7 @@ async function saveMapping() {
 }
 
 async function doUnmap(model, id, field) {
-  const res = await fetch('/api/mappings', {
+  const res = await fetch(API_BASE + '/api/mappings', {
     method:  'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ model, id, field }),
@@ -953,7 +959,7 @@ document.querySelector('.modal-templates').addEventListener('click', async e => 
     btn.textContent = '...';
     btn.disabled    = true;
     try {
-      const res = await fetch('/api/publish', {
+      const res = await fetch(API_BASE + '/api/publish', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ topic: discTopic, value: JSON.stringify(discPayload), retain: true }),
@@ -1009,7 +1015,7 @@ document.getElementById('btn-ha-discovery').addEventListener('click', async func
     const discTopic   = `homeassistant/${haEntityType(field)}/rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}/config`;
     const discPayload = haDiscoveryPayload(model, id, field, stateTopic);
     try {
-      const res = await fetch('/api/publish', {
+      const res = await fetch(API_BASE + '/api/publish', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ topic: discTopic, value: JSON.stringify(discPayload), retain: true }),
@@ -1029,7 +1035,7 @@ async function doTestPublish(btn) {
   btn.disabled    = true;
   btn.textContent = '...';
   try {
-    const res = await fetch('/api/publish', {
+    const res = await fetch(API_BASE + '/api/publish', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ topic, value }),
@@ -1070,7 +1076,7 @@ async function doForget(model, id) {
   localStorage.setItem('rtl433-pinned',  JSON.stringify(state.pinned));
   localStorage.setItem('rtl433-ignored', JSON.stringify(state.ignored));
   renderDevices();
-  await fetch('/api/devices', {
+  await fetch(API_BASE + '/api/devices', {
     method:  'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ model, id }),
@@ -1143,7 +1149,7 @@ document.getElementById('freq-toolbar').addEventListener('click', async e => {
   btn.classList.add('switching');
 
   try {
-    const res = await fetch('/api/frequency', {
+    const res = await fetch(API_BASE + '/api/frequency', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ frequency: freq }),
@@ -1194,7 +1200,7 @@ async function startScan() {
     state.scanner.packetsThisWindow = 0;
     resultsEl.innerHTML = `<span class="scan-status">Scanning ${escHtml(freq)}... (${i + 1}/${SCAN_FREQS.length})</span>`;
     try {
-      await fetch('/api/frequency', {
+      await fetch(API_BASE + '/api/frequency', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ frequency: freq }),
@@ -1280,7 +1286,7 @@ async function openConfigModal() {
   cfgError.style.display = 'none';
   cfgPassInput.value = '';
   try {
-    const res  = await fetch('/api/config');
+    const res  = await fetch(API_BASE + '/api/config');
     const data = await res.json();
     cfgUrlInput.value  = data.mqttUrl      || '';
     cfgUserInput.value = data.mqttUsername || '';
@@ -1292,8 +1298,8 @@ async function openConfigModal() {
   // Load rtl_433 config file + process status
   try {
     const [confRes, statRes] = await Promise.all([
-      fetch('/api/rtl433/config'),
-      fetch('/api/rtl433/status'),
+      fetch(API_BASE + '/api/rtl433/config'),
+      fetch(API_BASE + '/api/rtl433/status'),
     ]);
     cfgRtlConf.value = await confRes.text();
     const stat = await statRes.json();
@@ -1313,23 +1319,23 @@ configModal.addEventListener('click', e => { if (e.target === configModal) close
 
 // rtl_433 process controls
 document.getElementById('cfg-rtl433-start').addEventListener('click', async () => {
-  await fetch('/api/rtl433/start', { method: 'POST' });
+  await fetch(API_BASE + '/api/rtl433/start', { method: 'POST' });
   setTimeout(async () => {
-    const r = await fetch('/api/rtl433/status');
+    const r = await fetch(API_BASE + '/api/rtl433/status');
     updateRtl433ProcBadge((await r.json()).status);
   }, 600);
 });
 document.getElementById('cfg-rtl433-stop').addEventListener('click', async () => {
-  await fetch('/api/rtl433/stop', { method: 'POST' });
+  await fetch(API_BASE + '/api/rtl433/stop', { method: 'POST' });
   setTimeout(async () => {
-    const r = await fetch('/api/rtl433/status');
+    const r = await fetch(API_BASE + '/api/rtl433/status');
     updateRtl433ProcBadge((await r.json()).status);
   }, 600);
 });
 document.getElementById('cfg-rtl433-restart').addEventListener('click', async () => {
-  await fetch('/api/rtl433/restart', { method: 'POST' });
+  await fetch(API_BASE + '/api/rtl433/restart', { method: 'POST' });
   setTimeout(async () => {
-    const r = await fetch('/api/rtl433/status');
+    const r = await fetch(API_BASE + '/api/rtl433/status');
     updateRtl433ProcBadge((await r.json()).status);
   }, 800);
 });
@@ -1338,7 +1344,7 @@ document.getElementById('cfg-rtl433-restart').addEventListener('click', async ()
 document.getElementById('cfg-rtl433-save').addEventListener('click', async () => {
   const text = cfgRtlConf.value;
   try {
-    await fetch('/api/rtl433/config', {
+    await fetch(API_BASE + '/api/rtl433/config', {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
       body:    text,
@@ -1395,7 +1401,7 @@ document.getElementById('config-save').addEventListener('click', async () => {
   if (pass) body.mqttPassword = pass;  // only send if user typed something
 
   try {
-    const res  = await fetch('/api/config', {
+    const res  = await fetch(API_BASE + '/api/config', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(body),
