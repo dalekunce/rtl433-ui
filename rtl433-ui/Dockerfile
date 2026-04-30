@@ -5,10 +5,11 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # ── System packages ────────────────────────────────────────────────────────────
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends nodejs npm jq \
+    && apt-get install -y --no-install-recommends nodejs npm jq rtl-433 librtlsdr0 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
-    && node --version
+    && node --version \
+    && rtl_433 -V 2>&1 | head -1 || true
 
 # ── Application ───────────────────────────────────────────────────────────────
 WORKDIR /app

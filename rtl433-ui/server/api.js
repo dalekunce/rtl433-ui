@@ -1,8 +1,9 @@
 'use strict';
-const express    = require('express');
-const store      = require('./store');
-const mqttClient = require('./mqtt');
-const config     = require('./config');
+const express      = require('express');
+const store        = require('./store');
+const mqttClient   = require('./mqtt');
+const rtl433proc   = require('./rtl433proc');
+const config       = require('./config');
 
 const router = express.Router();
 router.use(express.json());
@@ -16,17 +17,59 @@ router.get('/status', (_req, res) => {
 });
 
 // POST /api/frequency  { frequency: '433.92M' }
-// Sends an MQTT command to rtl_433 to tune to the given frequency.
-// rtl_433 must be configured to subscribe to the command topic for this to work.
+// Restarts the local rtl_433 subprocess with the new frequency AND publishes
+// an MQTT command so external rtl_433 instances also retune.
 router.post('/frequency', (req, res) => {
   const { frequency } = req.body ?? {};
   // Accept formats like 433.92M, 315M, 868M, 915M
   if (!frequency || !/^[\d.]+[MkKgG]$/.test(String(frequency))) {
     return res.status(400).json({ error: 'Invalid frequency (e.g. "433.92M")' });
   }
-  const cmd = JSON.stringify({ cmd: 'set_freq', freq: String(frequency) });
+  const freq = String(frequency);
+  // Retune local subprocess
+  rtl433proc.setFrequency(freq);
+  // Also publish MQTT command for any external rtl_433 instances
+  const cmd = JSON.stringify({ cmd: 'set_freq', freq });
   mqttClient.publish(config.mqttCommandTopic, cmd);
-  res.json({ ok: true, frequency });
+  res.json({ ok: true, frequency: freq });
+});
+
+// ── rtl_433 subprocess endpoints ─────────────────────────────────────────────
+
+// GET /api/rtl433/status
+router.get('/rtl433/status', (_req, res) => {
+  res.json(rtl433proc.getStatus());
+});
+
+// GET /api/rtl433/config  — returns current config file text
+router.get('/rtl433/config', (_req, res) => {
+  res.type('text/plain').send(rtl433proc.readConfig());
+});
+
+// POST /api/rtl433/config  — save config text and restart subprocess
+router.post('/rtl433/config', express.text({ type: '*/*', limit: '512kb' }), (req, res) => {
+  const text = typeof req.body === 'string' ? req.body : '';
+  rtl433proc.writeConfig(text);
+  rtl433proc.restart();
+  res.json({ ok: true });
+});
+
+// POST /api/rtl433/start
+router.post('/rtl433/start', (_req, res) => {
+  rtl433proc.start();
+  res.json({ ok: true });
+});
+
+// POST /api/rtl433/stop
+router.post('/rtl433/stop', (_req, res) => {
+  rtl433proc.stop();
+  res.json({ ok: true });
+});
+
+// POST /api/rtl433/restart
+router.post('/rtl433/restart', (_req, res) => {
+  rtl433proc.restart();
+  res.json({ ok: true });
 });
 
 // GET /api/devices

@@ -143,11 +143,39 @@
         </label>
       </fieldset>
 
+      <fieldset class="config-section">
+        <legend>
+          rtl_433
+          <span id="cfg-rtl433-proc-badge" class="badge cfg-proc-badge">stopped</span>
+        </legend>
+
+        <div class="rtl433-proc-controls">
+          <button id="cfg-rtl433-start"   class="btn-proc btn-proc-start">▶ Start</button>
+          <button id="cfg-rtl433-stop"    class="btn-proc btn-proc-stop">⏹ Stop</button>
+          <button id="cfg-rtl433-restart" class="btn-proc btn-proc-restart">↺ Restart</button>
+        </div>
+
+        <label class="config-label" style="margin-top:10px;">
+          Configuration file
+          <span class="config-hint">
+            Paste an <a href="https://triq.org/rtl_433/OPERATION.html#configuration-file" target="_blank" rel="noopener">rtl_433 config file</a> — saved to /data/rtl433.conf and used on next start.
+          </span>
+        </label>
+        <div class="rtl433-conf-toolbar">
+          <button id="cfg-rtl433-load-file" class="btn-text" title="Load a config file from disk">📂 Load file</button>
+          <input type="file" id="cfg-rtl433-file-input" accept=".conf,.txt" style="display:none">
+        </div>
+        <textarea id="cfg-rtl433-conf" class="config-textarea"
+          placeholder="# Example rtl_433 config&#10;frequency     433.92M&#10;gain          40&#10;report_meta   time:utc&#10;output        json"
+          spellcheck="false" autocomplete="off"></textarea>
+      </fieldset>
+
       <div id="config-error" class="config-error" style="display:none"></div>
 
       <div class="modal-actions">
         <button id="config-cancel">Cancel</button>
-        <button id="config-save" class="primary">Save &amp; Reconnect</button>
+        <button id="cfg-rtl433-save" class="btn-secondary">Save config &amp; Restart rtl_433</button>
+        <button id="config-save" class="primary">Save MQTT &amp; Reconnect</button>
       </div>
     </div>
   </div>

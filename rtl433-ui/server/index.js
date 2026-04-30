@@ -10,6 +10,7 @@ const { WebSocketServer } = require('ws');
 const config     = require('./config');
 const store      = require('./store');
 const mqttClient = require('./mqtt');
+const rtl433proc = require('./rtl433proc');
 const api        = require('./api');
 
 // ── HTTP + WebSocket server ────────────────────────────────────────────────
@@ -33,14 +34,23 @@ wss.on('connection', ws => {
     type:     'init',
     devices:  store.getDevices(),
     mappings: store.getMappings(),
-    status:   { mqtt: mqttClient.getStatus(), rtl433: store.getRtl433Status() },
+    status:   {
+      mqtt:       mqttClient.getStatus(),
+      rtl433:     store.getRtl433Status(),
+      rtl433proc: rtl433proc.getStatus().status,
+    },
   }));
   // Send buffered log lines so the panel is populated immediately on connect
   ws.send(JSON.stringify({ type: 'logs_init', lines: logger.getBuffer() }));
 });
 
-// ── Device data from MQTT (published by rtl_433 add-on) ───────────────────
-mqttClient.on('data', data => {
+// ── Device data from MQTT (published by external rtl_433 add-on) ──────────
+mqttClient.on('data', handleData);
+
+// ── Device data from local rtl_433 subprocess ─────────────────────────────
+rtl433proc.on('data', handleData);
+
+function handleData(data) {
   store.recordDataReceived();
   const dev = store.updateDevice(data);
   if (!dev) return;
@@ -55,11 +65,16 @@ mqttClient.on('data', data => {
 
   broadcast({ type: 'device_update', device: dev });
   broadcast({ type: 'raw', data });
-});
+}
 
 // ── MQTT connection status → broadcast ────────────────────────────────────
 mqttClient.on('status', status => {
   broadcast({ type: 'status_update', mqtt: status });
+});
+
+// ── rtl_433 subprocess process status → broadcast ─────────────────────────
+rtl433proc.on('status', ({ status }) => {
+  broadcast({ type: 'status_update', rtl433proc: status });
 });
 
 // ── Server log lines → broadcast ───────────────────────────────────────────

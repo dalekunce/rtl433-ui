@@ -156,6 +156,9 @@ function handleMessage(msg) {
         el.textContent = `rtl_433: ${msg.rtl433}`;
         el.className   = `badge ${msg.rtl433}`;
       }
+      if (msg.rtl433proc) {
+        handleRtl433ProcStatus(msg.rtl433proc);
+      }
       break;
 
     case 'logs_init':
@@ -1249,6 +1252,14 @@ const cfgUserInput   = document.getElementById('cfg-mqtt-user');
 const cfgPassInput   = document.getElementById('cfg-mqtt-pass');
 const cfgPassHint    = document.getElementById('cfg-mqtt-pass-hint');
 const cfgError       = document.getElementById('config-error');
+const cfgRtlConf     = document.getElementById('cfg-rtl433-conf');
+const cfgRtlBadge    = document.getElementById('cfg-rtl433-proc-badge');
+
+function updateRtl433ProcBadge(status) {
+  if (!cfgRtlBadge) return;
+  cfgRtlBadge.textContent = status;
+  cfgRtlBadge.className   = `badge cfg-proc-badge ${status}`;
+}
 
 async function openConfigModal() {
   cfgError.style.display = 'none';
@@ -1263,6 +1274,16 @@ async function openConfigModal() {
     cfgUrlInput.value  = '';
     cfgUserInput.value = '';
   }
+  // Load rtl_433 config file + process status
+  try {
+    const [confRes, statRes] = await Promise.all([
+      fetch('/api/rtl433/config'),
+      fetch('/api/rtl433/status'),
+    ]);
+    cfgRtlConf.value = await confRes.text();
+    const stat = await statRes.json();
+    updateRtl433ProcBadge(stat.status);
+  } catch { /* ignore */ }
   configModal.classList.remove('hidden');
   cfgUrlInput.focus();
 }
@@ -1274,6 +1295,67 @@ function closeConfigModal() {
 document.getElementById('btn-config').addEventListener('click', openConfigModal);
 document.getElementById('config-cancel').addEventListener('click', closeConfigModal);
 configModal.addEventListener('click', e => { if (e.target === configModal) closeConfigModal(); });
+
+// rtl_433 process controls
+document.getElementById('cfg-rtl433-start').addEventListener('click', async () => {
+  await fetch('/api/rtl433/start', { method: 'POST' });
+  setTimeout(async () => {
+    const r = await fetch('/api/rtl433/status');
+    updateRtl433ProcBadge((await r.json()).status);
+  }, 600);
+});
+document.getElementById('cfg-rtl433-stop').addEventListener('click', async () => {
+  await fetch('/api/rtl433/stop', { method: 'POST' });
+  setTimeout(async () => {
+    const r = await fetch('/api/rtl433/status');
+    updateRtl433ProcBadge((await r.json()).status);
+  }, 600);
+});
+document.getElementById('cfg-rtl433-restart').addEventListener('click', async () => {
+  await fetch('/api/rtl433/restart', { method: 'POST' });
+  setTimeout(async () => {
+    const r = await fetch('/api/rtl433/status');
+    updateRtl433ProcBadge((await r.json()).status);
+  }, 800);
+});
+
+// Save rtl_433 config file and restart subprocess
+document.getElementById('cfg-rtl433-save').addEventListener('click', async () => {
+  const text = cfgRtlConf.value;
+  try {
+    await fetch('/api/rtl433/config', {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    text,
+    });
+    // Show brief feedback on the button
+    const btn = document.getElementById('cfg-rtl433-save');
+    const orig = btn.textContent;
+    btn.textContent = 'Saved & restarting…';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  } catch (err) {
+    cfgError.textContent = `Failed to save: ${err.message}`;
+    cfgError.style.display = '';
+  }
+});
+
+// Load config file from disk
+document.getElementById('cfg-rtl433-load-file').addEventListener('click', () => {
+  document.getElementById('cfg-rtl433-file-input').click();
+});
+document.getElementById('cfg-rtl433-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { cfgRtlConf.value = ev.target.result; };
+  reader.readAsText(file);
+  e.target.value = ''; // reset so same file can be re-selected
+});
+
+// Update badge when subprocess status changes via WebSocket
+function handleRtl433ProcStatus(status) {
+  updateRtl433ProcBadge(status);
+}
 
 document.getElementById('config-save').addEventListener('click', async () => {
   cfgError.style.display = 'none';

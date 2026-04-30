@@ -968,6 +968,73 @@ aside {
   margin-top: 10px;
 }
 
+/* rtl_433 process controls inside settings modal */
+.cfg-proc-badge {
+  font-size: 10px;
+  padding: 1px 7px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.cfg-proc-badge.running  { background: rgba(34,197,94,.14);  color: var(--green);  }
+.cfg-proc-badge.starting { background: rgba(245,158,11,.14); color: var(--yellow); }
+.cfg-proc-badge.stopped  { background: rgba(120,130,160,.14); color: var(--text-dim); }
+.cfg-proc-badge.error    { background: rgba(240,84,84,.14);  color: var(--red);    }
+
+.rtl433-proc-controls {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.btn-proc {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.btn-proc:hover { background: var(--border); }
+.btn-proc-start   { color: var(--green); }
+.btn-proc-stop    { color: var(--red); }
+.btn-proc-restart { color: var(--accent); }
+
+.rtl433-conf-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+
+.config-textarea {
+  width: 100%;
+  min-height: 130px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.config-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.btn-secondary {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-secondary:hover { background: var(--border); }
+
 /* ── Scrollbars ────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
