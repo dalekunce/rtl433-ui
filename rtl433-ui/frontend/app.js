@@ -651,11 +651,37 @@ function addStreamEntry(data) {
   if (data.model != null && data.id != null) {
     entry.dataset.deviceKey = `${data.model}|${data.id}`;
   }
-  const time = new Date().toLocaleTimeString();
+  const time    = new Date().toLocaleTimeString();
+  const compact = JSON.stringify(data);
+  const pretty  = JSON.stringify(data, null, 2);
   entry.innerHTML = `
-    <span class="stream-time">${time}</span>
-    <span class="stream-data">${escHtml(JSON.stringify(data))}</span>
+    <div class="stream-row">
+      <span class="stream-time">${time}</span>
+      <span class="stream-data">${escHtml(compact)}</span>
+      <button class="stream-copy" title="Copy JSON" tabindex="-1">&#128203;</button>
+      <button class="stream-expand" title="Expand/collapse JSON" tabindex="-1">&#9660;</button>
+    </div>
+    <pre class="stream-pretty hidden">${escHtml(pretty)}</pre>
   `;
+  // Wire up expand toggle
+  const expandBtn = entry.querySelector('.stream-expand');
+  const pre       = entry.querySelector('.stream-pretty');
+  expandBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = pre.classList.toggle('hidden');
+    expandBtn.textContent = open ? '\u25BC' : '\u25B2';
+    entry.classList.toggle('stream-entry-expanded', !open);
+  });
+  // Wire up copy button
+  entry.querySelector('.stream-copy').addEventListener('click', e => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(pretty).then(() => {
+      const btn = e.currentTarget;
+      const orig = btn.textContent;
+      btn.textContent = '\u2713';
+      setTimeout(() => { btn.textContent = orig; }, 1200);
+    });
+  });
   // Auto-highlight if this device is currently selected
   if (entry.dataset.deviceKey && entry.dataset.deviceKey === state.selectedKey) {
     entry.classList.add('stream-highlighted');
@@ -990,7 +1016,18 @@ function selectDevice(key) {
 
 document.getElementById('stream-list').addEventListener('click', e => {
   const entry = e.target.closest('.stream-entry');
-  if (entry && entry.dataset.deviceKey) selectDevice(entry.dataset.deviceKey);
+  if (!entry) return;
+  // Clicking the compact data line toggles expansion
+  if (e.target.classList.contains('stream-data')) {
+    const pre     = entry.querySelector('.stream-pretty');
+    const expandBtn = entry.querySelector('.stream-expand');
+    const open = pre.classList.toggle('hidden');
+    expandBtn.textContent = open ? '\u25BC' : '\u25B2';
+    entry.classList.toggle('stream-entry-expanded', !open);
+    return;
+  }
+  // Clicking elsewhere (but not a button) selects the device
+  if (!e.target.closest('button') && entry.dataset.deviceKey) selectDevice(entry.dataset.deviceKey);
 });
 
 document.getElementById('mappings-list').addEventListener('click', e => {
