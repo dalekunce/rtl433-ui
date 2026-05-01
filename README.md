@@ -13,7 +13,10 @@ Receive 433 MHz (and 315 / 868 / 915 MHz) RF signals from weather stations, door
 - **Home Assistant auto-discovery** — publish HA MQTT discovery payloads for all mapped sensors with one button
 - **Binary sensor support** — `battery_ok`, `alarm`, `tamper` automatically publish to `homeassistant/binary_sensor/…`
 - **Utility meter support** — ERT/AMR gas, water, and electric meters detected automatically with correct HA Energy Dashboard `state_class`
-- **Multi-band scanner** — scan 433 / 315 / 868 / 915 MHz bands to find active frequencies
+- **Persistent band scanner** — continuously scan 433 / 315 / 868 / 915 MHz bands with live packet-count bars; 30s / 1m / 5m window per band
+- **Bundled rtl_433** — the binary is included in the add-on image; no separate rtl_433 add-on needed
+- **rtl_433 subprocess control** — start, stop, restart, and upload a custom config file from the Settings panel
+- **Server log panel** — real-time and buffered server logs visible in the sidebar; expandable to full height
 - **Sparklines** — per-field value history charts inside each device card
 - **RSSI filter** — hide low-signal (distant neighbour) devices
 - **Pin / ignore / label devices** — pin important devices to the top, hide neighbours, rename anything
@@ -36,6 +39,8 @@ Receive 433 MHz (and 315 / 868 / 915 MHz) RF signals from weather stations, door
 - An RTL-SDR dongle plugged into your Home Assistant host
 - The [Mosquitto broker](https://github.com/home-assistant/addons/tree/master/mosquitto) add-on (or any MQTT broker)
 
+> **No separate rtl_433 add-on required.** The binary is bundled in the RTL433-UI image.
+
 ### Configuration
 
 | Option | Default | Description |
@@ -43,11 +48,10 @@ Receive 433 MHz (and 315 / 868 / 915 MHz) RF signals from weather stations, door
 | `mqtt_url` | `mqtt://core-mosquitto:1883` | MQTT broker URL (`mqtt://` or `mqtts://`) |
 | `mqtt_username` | *(blank)* | MQTT username (leave blank if no auth) |
 | `mqtt_password` | *(blank)* | MQTT password |
-| `rtl433_args` | `-F json -M utc -M level` | Extra arguments passed to rtl_433. Add `-d 0` to select a specific dongle. |
+| `mqtt_topic_prefix` | `rtl_433` | Topic prefix rtl_433 publishes to |
+| `mqtt_command_topic` | `rtl_433/command` | Topic for sending commands to rtl_433 |
 
-The UI is accessible from the **HA sidebar** via ingress (no extra port needed), or directly on port 3000.
-
-Settings changed via the in-app ⚙️ gear button are saved to `/data/settings.json` and survive add-on restarts and updates.
+Without any configuration, the add-on starts rtl_433 scanning all four ISM bands (433.92 / 868 / 315 / 915 MHz) with all 191 device protocols enabled. Drop a custom `rtl_433.conf` in via the Settings panel to override gain, protocols, or frequencies.
 
 ---
 
@@ -63,19 +67,12 @@ Settings changed via the in-app ⚙️ gear button are saved to `/data/settings.
 
 ```bash
 git clone https://github.com/dalekunce/rtl433-ui
-cd rtl433-ui
-./setup.sh        # installs rtl-sdr, rtl_433, mosquitto, npm deps
-./start.sh        # starts Mosquitto + the UI
-open http://localhost:3000
-```
-
-Or manually:
-
-```bash
+cd rtl433-ui/rtl433-ui
 brew install rtl-sdr rtl_433 mosquitto
 brew services start mosquitto
 npm install
 npm start
+open http://localhost:3000
 ```
 
 ### Configuration
@@ -94,8 +91,7 @@ Key variables:
 | `MQTT_URL` | `mqtt://localhost:1883` | MQTT broker URL |
 | `MQTT_USERNAME` | *(blank)* | MQTT username |
 | `MQTT_PASSWORD` | *(blank)* | MQTT password |
-| `RTL433_BIN` | `rtl_433` | Path to rtl_433 binary |
-| `RTL433_ARGS` | `-F json -M utc -M level` | rtl_433 arguments |
+| `RTL433_BIN` | `rtl_433` | Path or name of the rtl_433 binary |
 | `FORGET_AFTER_SECONDS` | `0` | Remove devices unseen for N seconds (0 = never) |
 
 ---
