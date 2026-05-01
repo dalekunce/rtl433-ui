@@ -3,14 +3,20 @@ name: Auto Release
 on:
   push:
     branches: [main]
-    # Don't trigger on version-bump commits to prevent loops
     paths-ignore:
       - '.github/**'
+
+# Serialize: never run two release jobs in parallel.
+# If commits pile up, each queued run checks out the latest HEAD (see ref: main below)
+# so it always reads the already-bumped version and increments from there.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Skip if the commit message is the version bump itself
+    # Skip if this IS a version-bump commit (prevents infinite loop)
     if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
 
     permissions:
@@ -20,6 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main        # always checkout latest HEAD, not just the triggering SHA
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read current version
@@ -38,6 +45,13 @@ jobs:
           NEW="$MAJOR.$MINOR.$((PATCH + 1))"
           echo "new_version=$NEW" >> $GITHUB_OUTPUT
 
+          # Guard: skip if this version tag already exists (idempotent safety)
+          if git ls-remote --tags origin "refs/tags/v$NEW" | grep -q .; then
+            echo "Tag v$NEW already exists — nothing to do"
+            echo "already_released=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
           # Update package.json
           node -e "
             const fs = require('fs');
@@ -50,6 +64,7 @@ jobs:
           sed -i "s/^version: \"$OLD\"/version: \"$NEW\"/" rtl433-ui/config.yaml
 
       - name: Commit version bump
+        if: env.already_released != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -58,6 +73,7 @@ jobs:
           git push
 
       - name: Create GitHub Release
+        if: env.already_released != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.bump.outputs.new_version }}
