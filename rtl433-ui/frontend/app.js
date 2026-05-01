@@ -819,7 +819,7 @@ function closeModal() {
   pendingMap = null;
 }
 
-async function saveMapping() {
+async function saveMapping(autoDiscovery = false) {
   const topic = document.getElementById('modal-topic').value.trim();
   if (!topic || !pendingMap) return;
 
@@ -835,6 +835,16 @@ async function saveMapping() {
     renderMappings();
     renderDevices();
     closeModal();
+    // Auto-publish HA discovery whenever the topic looks like an HA state topic
+    if (autoDiscovery || topic.startsWith('homeassistant/')) {
+      const discTopic   = `homeassistant/${haEntityType(field)}/rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}/config`;
+      const discPayload = haDiscoveryPayload(model, id, field, topic);
+      fetch(API_BASE + '/api/publish', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ topic: discTopic, value: JSON.stringify(discPayload), retain: true }),
+      }).catch(() => {/* best-effort */});
+    }
   } else {
     const { error } = await res.json();
     alert(`Could not save: ${error}`);
@@ -951,6 +961,7 @@ document.querySelector('.modal-templates').addEventListener('click', async e => 
     topicInput.value = haTopicState(model, id, field);
     topicInput.focus();
   } else if (btn.dataset.tpl === 'ha-disc') {
+    // Set topic, publish discovery, save mapping and close — all in one click
     const stateTopic  = haTopicState(model, id, field);
     topicInput.value  = stateTopic;
     const discTopic   = `homeassistant/${haEntityType(field)}/rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}/config`;
@@ -959,14 +970,29 @@ document.querySelector('.modal-templates').addEventListener('click', async e => 
     btn.textContent = '...';
     btn.disabled    = true;
     try {
-      const res = await fetch(API_BASE + '/api/publish', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ topic: discTopic, value: JSON.stringify(discPayload), retain: true }),
-      });
-      btn.textContent = res.ok ? 'Sent OK' : 'Send ERR';
+      const [pubRes] = await Promise.all([
+        fetch(API_BASE + '/api/publish', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ topic: discTopic, value: JSON.stringify(discPayload), retain: true }),
+        }),
+        fetch(API_BASE + '/api/mappings', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ model, id, field, topic: stateTopic }),
+        }),
+      ]);
+      if (pubRes.ok) {
+        state.mappings[`${model}.${id}.${field}`] = stateTopic;
+        renderMappings();
+        renderDevices();
+        setTimeout(() => closeModal(), 600);
+        btn.textContent = 'Saved ✓';
+      } else {
+        btn.textContent = 'Error';
+      }
     } catch {
-      btn.textContent = 'Send ERR';
+      btn.textContent = 'Error';
     }
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
   }
