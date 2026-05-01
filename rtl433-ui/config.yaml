@@ -1,6 +1,6 @@
 ---
 name: RTL433-UI
-version: "0.1.3"
+version: "0.1.4"
 slug: rtl433-ui
 description: "Live dashboard for RTL-SDR dongles. Decodes 433/315/868/915 MHz devices (weather stations, door sensors, utility meters) and maps any field to MQTT with one click. Includes HA auto-discovery, a persistent band scanner, and a bundled rtl_433 binary — no extra add-on needed."
 url: "https://github.com/dalekunce/rtl433-ui"
