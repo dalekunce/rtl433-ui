@@ -82,9 +82,9 @@ router.get('/mappings', (_req, res) => {
   res.json(store.getMappings());
 });
 
-// POST /api/mappings  { model, id, field, topic }
+// POST /api/mappings  { model, id, field, topic, name?, device_class?, state_class?, unit?, icon? }
 router.post('/mappings', (req, res) => {
-  const { model, id, field, topic } = req.body ?? {};
+  const { model, id, field, topic, name, device_class, state_class, unit, icon } = req.body ?? {};
   if (!model || !field || !topic) {
     return res.status(400).json({ error: '`model`, `field`, and `topic` are required' });
   }
@@ -92,7 +92,13 @@ router.post('/mappings', (req, res) => {
   if (/[#+]/.test(topic)) {
     return res.status(400).json({ error: 'MQTT topic must not contain wildcard characters (# or +)' });
   }
-  store.addMapping(model, id, field, topic);
+  const overrides = {};
+  if (name)         overrides.name         = String(name).slice(0, 200);
+  if (device_class) overrides.device_class = String(device_class).slice(0, 100);
+  if (state_class)  overrides.state_class  = String(state_class).slice(0, 50);
+  if (unit)         overrides.unit         = String(unit).slice(0, 50);
+  if (icon)         overrides.icon         = String(icon).slice(0, 100);
+  store.addMapping(model, id, field, topic, overrides);
   res.json({ ok: true });
 });
 

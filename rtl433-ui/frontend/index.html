@@ -107,6 +107,37 @@
         <button class="btn-tpl" data-tpl="ha-disc"  title="Publish HA auto-discovery config, save mapping, and close">HA auto-discovery ✦</button>
       </div>
       <input type="text" id="modal-topic" placeholder="e.g. home/outdoor/temperature" autocomplete="off" spellcheck="false">
+      <!-- Advanced sensor customisation (collapsible) -->
+      <details id="modal-advanced" class="modal-advanced">
+        <summary>Advanced options</summary>
+        <div class="modal-adv-grid">
+          <label class="modal-adv-label">
+            Name
+            <input type="text" id="modal-adv-name" class="modal-adv-input" placeholder="auto" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="modal-adv-label">
+            Icon
+            <input type="text" id="modal-adv-icon" class="modal-adv-input" placeholder="mdi:thermometer" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="modal-adv-label">
+            Device class
+            <input type="text" id="modal-adv-device-class" class="modal-adv-input" placeholder="temperature" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="modal-adv-label">
+            State class
+            <select id="modal-adv-state-class" class="modal-adv-input">
+              <option value="">— auto —</option>
+              <option value="measurement">measurement</option>
+              <option value="total_increasing">total_increasing</option>
+              <option value="total">total</option>
+            </select>
+          </label>
+          <label class="modal-adv-label" style="grid-column:1/-1">
+            Unit of measurement
+            <input type="text" id="modal-adv-unit" class="modal-adv-input" placeholder="°C" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+      </details>
       <div class="modal-actions">
         <button id="modal-cancel">Cancel</button>
         <button id="modal-save" class="primary">Save</button>

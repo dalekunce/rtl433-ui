@@ -105,8 +105,9 @@ function mappingKey(model, id, field) {
   return `${model}.${safeId(id)}.${field}`;
 }
 
-function addMapping(model, id, field, topic) {
-  mappings[mappingKey(model, id, field)] = topic;
+function addMapping(model, id, field, topic, overrides = {}) {
+  const hasOverrides = Object.keys(overrides).length > 0;
+  mappings[mappingKey(model, id, field)] = hasOverrides ? { topic, ...overrides } : topic;
   saveMappings();
 }
 
@@ -127,7 +128,10 @@ function getMappingsForDevice(model, id) {
   const prefix = `${model}.${safeId(id)}.`;
   const result = {};
   for (const [k, v] of Object.entries(mappings)) {
-    if (k.startsWith(prefix)) result[k.slice(prefix.length)] = v;
+    if (k.startsWith(prefix)) {
+      // Support both legacy string values and new object format
+      result[k.slice(prefix.length)] = typeof v === 'string' ? v : v.topic;
+    }
   }
   return result;
 }

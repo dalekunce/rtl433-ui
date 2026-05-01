@@ -57,12 +57,14 @@ function deviceKey(dev) {
   return `${dev.model}|${dev.id}`;
 }
 
-/** Return field→topic map for a specific device from state.mappings. */
+/** Return field→topic (string) map for a specific device from state.mappings. */
 function fieldMappings(dev) {
   const prefix = `${dev.model}.${dev.id}.`;
   const result = {};
   for (const [k, v] of Object.entries(state.mappings)) {
-    if (k.startsWith(prefix)) result[k.slice(prefix.length)] = v;
+    if (k.startsWith(prefix)) {
+      result[k.slice(prefix.length)] = typeof v === 'string' ? v : v.topic;
+    }
   }
   return result;
 }
@@ -108,7 +110,11 @@ function handleMessage(msg) {
       state.mqttStatus       = msg.status.mqtt;
       state.rtl433Status     = msg.status.rtl433     || 'waiting';
       state.rtl433ProcStatus = msg.status.rtl433proc || 'stopped';
-      state.mappings         = msg.mappings;
+      // Normalise mappings: legacy string values → { topic } objects
+      state.mappings = {};
+      for (const [k, v] of Object.entries(msg.mappings ?? {})) {
+        state.mappings[k] = typeof v === 'string' ? { topic: v } : v;
+      }
       state.devices.clear();
       for (const dev of msg.devices) state.devices.set(deviceKey(dev), dev);
       renderAll();
@@ -602,11 +608,21 @@ function renderMappings() {
   }
 
   list.innerHTML = '';
-  for (const [key, topic] of entries) {
+  for (const [key, mapping] of entries) {
+    const topic = typeof mapping === 'string' ? mapping : mapping.topic;
     const parts = key.split('.');
     const field = parts.slice(2).join('.');
     const model = parts[0];
     const id    = parts[1];
+    // Build badge list for any active overrides
+    const ovr = typeof mapping === 'object' ? mapping : {};
+    const badges = [
+      ovr.name         ? `<span class="mapping-badge" title="name">${escHtml(ovr.name)}</span>` : '',
+      ovr.device_class ? `<span class="mapping-badge" title="device_class">${escHtml(ovr.device_class)}</span>` : '',
+      ovr.state_class  ? `<span class="mapping-badge" title="state_class">${escHtml(ovr.state_class)}</span>` : '',
+      ovr.unit         ? `<span class="mapping-badge" title="unit">${escHtml(ovr.unit)}</span>` : '',
+      ovr.icon         ? `<span class="mapping-badge" title="icon">${escHtml(ovr.icon)}</span>` : '',
+    ].filter(Boolean).join('');
 
     const row = document.createElement('div');
     row.className = 'mapping-row';
@@ -615,6 +631,7 @@ function renderMappings() {
         <span class="mapping-key">${escHtml(key)}</span>
         <span class="mapping-arrow">&rarr;</span>
         <span class="mapping-topic">${escHtml(topic)}</span>
+        ${badges}
       </div>
       <button class="btn-unmap"
         data-model="${escHtml(model)}"
@@ -771,13 +788,13 @@ function haEntityType(field) {
   return (HA_FIELD_META[field] || {}).type || 'sensor';
 }
 
-function haDiscoveryPayload(model, id, field, stateTopic) {
+function haDiscoveryPayload(model, id, field, stateTopic, overrides = {}) {
   const meta     = HA_FIELD_META[field] || {};
   const isBinary = meta.type === 'binary_sensor';
   const uid      = `rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}`;
   const label    = state.labels[`${model}|${id}`] || model;
   const payload  = {
-    name:         `${label} ${field.replace(/_/g, ' ')}`,
+    name:         overrides.name || `${label} ${field.replace(/_/g, ' ')}`,
     unique_id:    uid,
     state_topic:  stateTopic,
     object_id:    uid,
@@ -789,9 +806,17 @@ function haDiscoveryPayload(model, id, field, stateTopic) {
       manufacturer: 'rtl_433',
     },
   };
-  if (meta.device_class) payload.device_class = meta.device_class;
-  if (meta.unit)         payload.unit_of_measurement = meta.unit;
-  if (meta.state_class)  payload.state_class = meta.state_class;
+  // Apply overrides first, then fall back to HA_FIELD_META defaults
+  const dc = overrides.device_class !== undefined && overrides.device_class !== ''
+    ? overrides.device_class : meta.device_class;
+  const unit = overrides.unit !== undefined && overrides.unit !== ''
+    ? overrides.unit : meta.unit;
+  const sc = overrides.state_class !== undefined && overrides.state_class !== ''
+    ? overrides.state_class : meta.state_class;
+  if (dc)            payload.device_class        = dc;
+  if (unit)          payload.unit_of_measurement = unit;
+  if (sc)            payload.state_class         = sc;
+  if (overrides.icon) payload.icon               = overrides.icon;
   if (meta.precision != null) payload.suggested_display_precision = meta.precision;
   if (meta.value_template)    payload.value_template = meta.value_template;
   if (isBinary) {
@@ -804,18 +829,51 @@ function haDiscoveryPayload(model, id, field, stateTopic) {
 // ── Modal ───────────────────────────────────────────────────────────────────
 let pendingMap = null;
 
+function collectAdvancedOverrides() {
+  const overrides = {};
+  const name         = document.getElementById('modal-adv-name').value.trim();
+  const icon         = document.getElementById('modal-adv-icon').value.trim();
+  const device_class = document.getElementById('modal-adv-device-class').value.trim();
+  const state_class  = document.getElementById('modal-adv-state-class').value;
+  const unit         = document.getElementById('modal-adv-unit').value.trim();
+  if (name)         overrides.name         = name;
+  if (icon)         overrides.icon         = icon;
+  if (device_class) overrides.device_class = device_class;
+  if (state_class)  overrides.state_class  = state_class;
+  if (unit)         overrides.unit         = unit;
+  return overrides;
+}
+
 function openModal(model, id, field) {
   pendingMap = { model, id, field };
-  const mkey = `${model}.${id}.${field}`;
+  const mkey  = `${model}.${id}.${field}`;
   document.getElementById('modal-label').textContent = mkey;
   const existing = state.mappings[mkey];
-  document.getElementById('modal-topic').value = existing || haTopicFlat(model, id, field);
+  const existingTopic = existing ? existing.topic : null;
+  const meta  = HA_FIELD_META[field] || {};
+  const label = state.labels[`${model}|${id}`] || model;
+  document.getElementById('modal-topic').value = existingTopic || haTopicFlat(model, id, field);
+  // Populate advanced fields: use existing overrides if any, otherwise show meta defaults as placeholders
+  document.getElementById('modal-adv-name').value         = existing?.name         || '';
+  document.getElementById('modal-adv-name').placeholder   = `${label} ${field.replace(/_/g, ' ')}`;
+  document.getElementById('modal-adv-icon').value         = existing?.icon         || '';
+  document.getElementById('modal-adv-device-class').value = existing?.device_class || '';
+  document.getElementById('modal-adv-device-class').placeholder = meta.device_class || 'e.g. temperature';
+  document.getElementById('modal-adv-state-class').value  = existing?.state_class  || '';
+  document.getElementById('modal-adv-unit').value         = existing?.unit         || '';
+  document.getElementById('modal-adv-unit').placeholder   = meta.unit || 'e.g. °C';
   document.getElementById('modal').classList.remove('hidden');
   document.getElementById('modal-topic').focus();
 }
 
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modal-advanced').open = false;
+  document.getElementById('modal-adv-name').value         = '';
+  document.getElementById('modal-adv-icon').value         = '';
+  document.getElementById('modal-adv-device-class').value = '';
+  document.getElementById('modal-adv-state-class').value  = '';
+  document.getElementById('modal-adv-unit').value         = '';
   pendingMap = null;
 }
 
@@ -824,21 +882,23 @@ async function saveMapping(autoDiscovery = false) {
   if (!topic || !pendingMap) return;
 
   const { model, id, field } = pendingMap;
+  const overrides = collectAdvancedOverrides();
+
   const res = await fetch(API_BASE + '/api/mappings', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ model, id, field, topic }),
+    body:    JSON.stringify({ model, id, field, topic, ...overrides }),
   });
 
   if (res.ok) {
-    state.mappings[`${model}.${id}.${field}`] = topic;
+    state.mappings[`${model}.${id}.${field}`] = { topic, ...overrides };
     renderMappings();
     renderDevices();
     closeModal();
     // Auto-publish HA discovery whenever the topic looks like an HA state topic
     if (autoDiscovery || topic.startsWith('homeassistant/')) {
       const discTopic   = `homeassistant/${haEntityType(field)}/rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}/config`;
-      const discPayload = haDiscoveryPayload(model, id, field, topic);
+      const discPayload = haDiscoveryPayload(model, id, field, topic, overrides);
       fetch(API_BASE + '/api/publish', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -964,8 +1024,9 @@ document.querySelector('.modal-templates').addEventListener('click', async e => 
     // Set topic, publish discovery, save mapping and close — all in one click
     const stateTopic  = haTopicState(model, id, field);
     topicInput.value  = stateTopic;
+    const overrides   = collectAdvancedOverrides();
     const discTopic   = `homeassistant/${haEntityType(field)}/rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}/config`;
-    const discPayload = haDiscoveryPayload(model, id, field, stateTopic);
+    const discPayload = haDiscoveryPayload(model, id, field, stateTopic, overrides);
     const orig = btn.textContent;
     btn.textContent = '...';
     btn.disabled    = true;
@@ -979,11 +1040,11 @@ document.querySelector('.modal-templates').addEventListener('click', async e => 
         fetch(API_BASE + '/api/mappings', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ model, id, field, topic: stateTopic }),
+          body:    JSON.stringify({ model, id, field, topic: stateTopic, ...overrides }),
         }),
       ]);
       if (pubRes.ok) {
-        state.mappings[`${model}.${id}.${field}`] = stateTopic;
+        state.mappings[`${model}.${id}.${field}`] = { topic: stateTopic, ...overrides };
         renderMappings();
         renderDevices();
         setTimeout(() => closeModal(), 600);
@@ -1045,11 +1106,13 @@ document.getElementById('btn-ha-discovery').addEventListener('click', async func
   btn.disabled    = true;
   btn.textContent = `... 0/${entries.length}`;
   let ok = 0;
-  for (const [mkey, stateTopic] of entries) {
-    const parts = mkey.split('.');
-    const model = parts[0], id = parts[1], field = parts.slice(2).join('.');
+  for (const [mkey, mapping] of entries) {
+    const parts      = mkey.split('.');
+    const model      = parts[0], id = parts[1], field = parts.slice(2).join('.');
+    const stateTopic = typeof mapping === 'string' ? mapping : mapping.topic;
+    const overrides  = typeof mapping === 'object' ? mapping : {};
     const discTopic   = `homeassistant/${haEntityType(field)}/rtl433_${haSlug(model)}_${haSlug(id)}_${haSlug(field)}/config`;
-    const discPayload = haDiscoveryPayload(model, id, field, stateTopic);
+    const discPayload = haDiscoveryPayload(model, id, field, stateTopic, overrides);
     try {
       const res = await fetch(API_BASE + '/api/publish', {
         method:  'POST',
