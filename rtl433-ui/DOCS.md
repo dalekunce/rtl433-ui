@@ -202,3 +202,4 @@ Open **Server Logs** in the sidebar to see the exact error message from rtl_433.
 - **Issues / feature requests**: [github.com/dalekunce/rtl433-ui/issues](https://github.com/dalekunce/rtl433-ui/issues)
 - **Source code**: [github.com/dalekunce/rtl433-ui](https://github.com/dalekunce/rtl433-ui)
 
+
