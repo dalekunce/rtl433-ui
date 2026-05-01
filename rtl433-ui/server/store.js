@@ -34,11 +34,15 @@ function updateDevice(data) {
   const now = Date.now();
   const key  = deviceKey(model, id);
 
-  // Collect only meaningful sensor fields
+  // Collect only meaningful sensor fields.
+  // Normalise keys to lowercase so that protocols with PascalCase field names
+  // (e.g. SCMplus: "Consumption", "Tamper") work with all downstream logic,
+  // HA_FIELD_META lookups, has() checks, and topic generation.
   const fields = {};
   for (const [k, v] of Object.entries(rest)) {
-    if (!META_FIELDS.has(k) && (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string')) {
-      fields[k] = { value: v, lastSeen: now };
+    const key = k.toLowerCase();
+    if (!META_FIELDS.has(key) && (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string')) {
+      fields[key] = { value: v, lastSeen: now };
     }
   }
 
