@@ -793,21 +793,26 @@ const HA_FIELD_META = {
   alarm:               { type: 'binary_sensor', device_class: 'problem',     payload_on: '1', payload_off: '0' },
   tamper:              { type: 'binary_sensor', device_class: 'tamper',      payload_on: '1', payload_off: '0' },
   // Utility meters (ERT/AMR — gas, water, electric)
-  consumption:          { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
-  consumption_data:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
-  current_consumption:  { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
-  last_consumption:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing' },
-  water_m3:             { type: 'sensor', device_class: 'water',           unit: 'm\u00b3',    precision: 3, state_class: 'total_increasing' },
-  water_L:              { type: 'sensor', device_class: 'water',           unit: 'L',          precision: 0, state_class: 'total_increasing' },
-  energy_kWh:           { type: 'sensor', device_class: 'energy',          unit: 'kWh',        precision: 3, state_class: 'total_increasing' },
+  // force_update: true is REQUIRED for HA Energy dashboard — without it, HA ignores
+  // repeated identical readings (meters broadcast same value every ~30s) and creates
+  // no statistics records. no_expire: true means we omit expire_after so the sensor
+  // stays available during brief reception gaps instead of going 'unavailable'.
+  consumption:          { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing', force_update: true, no_expire: true },
+  consumption_data:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing', force_update: true, no_expire: true },
+  current_consumption:  { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing', force_update: true, no_expire: true },
+  last_consumption:     { type: 'sensor', device_class: 'gas',             unit: 'CCF',        precision: 0, state_class: 'total_increasing', force_update: true, no_expire: true },
+  water_m3:             { type: 'sensor', device_class: 'water',           unit: 'm\u00b3',    precision: 3, state_class: 'total_increasing', force_update: true, no_expire: true },
+  water_L:              { type: 'sensor', device_class: 'water',           unit: 'L',          precision: 0, state_class: 'total_increasing', force_update: true, no_expire: true },
+  energy_kWh:           { type: 'sensor', device_class: 'energy',          unit: 'kWh',        precision: 3, state_class: 'total_increasing', force_update: true, no_expire: true },
   current_A:            { type: 'sensor', device_class: 'current',         unit: 'A',          precision: 2 },
   voltage_V:            { type: 'sensor', device_class: 'voltage',         unit: 'V',          precision: 1 },
   apparent_power:       { type: 'sensor', device_class: 'apparent_power',  unit: 'VA',         precision: 1 },
 };
 
 // How long HA should wait (seconds) before marking a sensor unavailable.
-// rtl_433 devices typically transmit every 30–300 s; we use a generous 3× headroom.
-// Battery-powered devices often transmit every ~60 s, so 600 s = 10 min is safe.
+// Only applied to transient sensors (weather stations, etc.) — NOT utility meters.
+// Utility meters use no_expire:true in their meta to omit this field entirely,
+// so HA keeps the last known reading during brief reception gaps.
 const HA_EXPIRE_AFTER = 600;
 
 function haEntityType(field) {
@@ -824,7 +829,6 @@ function haDiscoveryPayload(model, id, field, stateTopic, overrides = {}) {
     unique_id:    uid,
     state_topic:  stateTopic,
     object_id:    uid,
-    expire_after: HA_EXPIRE_AFTER,
     device: {
       identifiers:  [`rtl433_${haSlug(model)}_${haSlug(id)}`],
       name:         `${label} (${id})`,
@@ -832,6 +836,10 @@ function haDiscoveryPayload(model, id, field, stateTopic, overrides = {}) {
       manufacturer: 'rtl_433',
     },
   };
+  // Only set expire_after for transient sensors, not utility meters
+  if (!meta.no_expire) payload.expire_after = HA_EXPIRE_AFTER;
+  // force_update: true is required for energy dashboard (records stats on every push)
+  if (meta.force_update) payload.force_update = true;
   // Apply overrides first, then fall back to HA_FIELD_META defaults
   const dc = overrides.device_class !== undefined && overrides.device_class !== ''
     ? overrides.device_class : meta.device_class;

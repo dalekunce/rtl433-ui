@@ -60,7 +60,7 @@ function handleData(data) {
   const fieldMappings = store.getMappingsForDevice(dev.model, dev.id);
   for (const [field, topic] of Object.entries(fieldMappings)) {
     if (field in dev.fields) {
-      mqttClient.publish(topic, dev.fields[field].value);
+      mqttClient.publish(topic, String(dev.fields[field].value));
     }
   }
 
