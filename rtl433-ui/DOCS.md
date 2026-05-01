@@ -4,6 +4,8 @@ A live web dashboard for RTL-SDR receivers that decodes 433 / 315 / 868 / 915 MH
 
 > **No separate rtl_433 add-on required.** The decoder binary is bundled inside this image.
 
+![RTL433-UI dashboard showing live device cards with temperature, humidity, and signal data](docs/dashboard.png)
+
 ---
 
 ## Requirements

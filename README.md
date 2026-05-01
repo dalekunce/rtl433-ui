@@ -4,6 +4,8 @@ Live web dashboard and MQTT topic mapper for RTL-SDR receivers, powered by [rtl_
 
 Receive 433 MHz (and 315 / 868 / 915 MHz) RF signals from weather stations, door sensors, utility meters, garage door openers, and hundreds of other devices — then view them live in a browser and publish individual fields to any MQTT topic.
 
+![RTL433-UI dashboard showing live device cards with temperature, humidity, and signal data](rtl433-ui/docs/dashboard.png)
+
 ---
 
 ## Features
@@ -52,6 +54,10 @@ Receive 433 MHz (and 315 / 868 / 915 MHz) RF signals from weather stations, door
 | `mqtt_command_topic` | `rtl_433/command` | Topic for sending commands to rtl_433 |
 
 Without any configuration, the add-on starts rtl_433 scanning all four ISM bands (433.92 / 868 / 315 / 915 MHz) with all 191 device protocols enabled. Drop a custom `rtl_433.conf` in via the Settings panel to override gain, protocols, or frequencies.
+
+| Dashboard | Band Scanner | Settings |
+|-----------|-------------|----------|
+| ![Dashboard](rtl433-ui/docs/dashboard.png) | ![Band Scanner](rtl433-ui/docs/band-scanner.png) | ![Settings](rtl433-ui/docs/settings-modal.png) |
 
 ---
 
