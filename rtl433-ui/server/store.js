@@ -106,7 +106,8 @@ function saveMappings() {
 }
 
 function mappingKey(model, id, field) {
-  return `${model}.${safeId(id)}.${field}`;
+  // Field names are always stored lowercase to match the normalised device fields.
+  return `${model}.${safeId(id)}.${field.toLowerCase()}`;
 }
 
 function addMapping(model, id, field, topic, overrides = {}) {
@@ -133,8 +134,10 @@ function getMappingsForDevice(model, id) {
   const result = {};
   for (const [k, v] of Object.entries(mappings)) {
     if (k.startsWith(prefix)) {
-      // Support both legacy string values and new object format
-      result[k.slice(prefix.length)] = typeof v === 'string' ? v : v.topic;
+      // Lowercase the field key so that legacy entries stored with PascalCase
+      // (e.g. "SCMplus.76703485.Consumption") still match normalised device fields.
+      const field = k.slice(prefix.length).toLowerCase();
+      result[field] = typeof v === 'string' ? v : v.topic;
     }
   }
   return result;
